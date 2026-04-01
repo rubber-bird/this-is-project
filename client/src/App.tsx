@@ -1,30 +1,50 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { Container, Typography, Link, Stack } from '@mui/material';
 
-import './App.css';
-
-import { getServerInfo } from './api'
+import type { User } from './api';
+import { Login } from './auth/Login';
+import { SignUp } from './auth/SignUp';
+import { EntryPage } from './entry/EntryPage';
 
 function App() {
-  const [version, setVersion] = useState('N/A');
+  const [user, setUser] = useState<User | null>(null);
+  const [view, setView] = useState<'login' | 'signup'>('login');
 
-  useEffect(() => {
-    const data = getServerInfo();
-
-    data.then((info) => {
-      setVersion(info.php_version);
-    });
-  }, []);
+  if (user) {
+    return <EntryPage user={user} onLogout={() => setUser(null)} />;
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="card">
-          <h1>CSC 350 - Project 1</h1>
-          <p>Server Info: {version}</p>
-        </div>
-      </section>
-    </>
-  )
+    <Container maxWidth="sm" sx={{ py: 6 }}>
+      <Stack spacing={3} alignItems="center">
+        <Typography variant="h4" fontWeight={500}>
+          CSC 350 - Project 1
+        </Typography>
+
+        {view === 'login' ? (
+          <>
+            <Login onSuccess={setUser} />
+            <Typography>
+              No account?{' '}
+              <Link component="button" onClick={() => setView('signup')}>
+                Sign up
+              </Link>
+            </Typography>
+          </>
+        ) : (
+          <>
+            <SignUp onSuccess={() => setView('login')} />
+            <Typography>
+              Already have an account?{' '}
+              <Link component="button" onClick={() => setView('login')}>
+                Sign in
+              </Link>
+            </Typography>
+          </>
+        )}
+      </Stack>
+    </Container>
+  );
 }
 
-export default App
+export default App;
