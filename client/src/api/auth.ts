@@ -1,34 +1,9 @@
 import type { User, SignUpRequest, SignInRequest } from './types';
-
-const BASE = '/api';
-
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, options);
-
-  const text = await res.text();
-  let data: Record<string, unknown>;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(text || `Request failed (${res.status})`);
-  }
-
-  if (!res.ok) {
-    const err = data.error;
-    const msg = typeof err === 'string'
-      ? err
-      : (err && typeof err === 'object' && 'message' in err) ? String((err as { message: unknown }).message)
-      : 'Something went wrong';
-    throw new Error(msg);
-  }
-
-  return data as T;
-}
+import { apiRequest } from './http';
 
 export function signUp(body: SignUpRequest): Promise<User> {
-  return request<User>(`${BASE}/sign-up`, {
+  return apiRequest<User>('/sign-up', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       given_name: body.givenName,
       family_name: body.familyName,
@@ -39,17 +14,16 @@ export function signUp(body: SignUpRequest): Promise<User> {
 }
 
 export function signIn(body: SignInRequest): Promise<User> {
-  return request<User>(`${BASE}/sign-in`, {
+  return apiRequest<User>('/sign-in', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
 
 export function whoami(): Promise<User> {
-  return request<User>(`${BASE}/whoami`);
+  return apiRequest<User>('/whoami');
 }
 
 export function signOut(): Promise<{ message: string }> {
-  return request<{ message: string }>(`${BASE}/sign-out`, { method: 'POST' });
+  return apiRequest<{ message: string }>('/sign-out', { method: 'POST' });
 }
