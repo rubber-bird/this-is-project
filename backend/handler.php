@@ -6,6 +6,8 @@ require_once __DIR__ . '/src/util/Result.php';
 require_once __DIR__ . '/src/util/ResultMapper.php';
 require_once __DIR__ . '/src/service/Auth.php';
 require_once __DIR__ . '/src/service/AccountService.php';
+require_once __DIR__ . '/src/service/ProjectService.php';
+require_once __DIR__ . '/src/data/ProjectRepository.php';
 
 header('Content-Type: application/json');
 
@@ -27,12 +29,18 @@ $users = new UserRepository();
 $accounts = new AccountRepository();
 $auth = new Auth($users, $accounts);
 $account = new AccountService($users);
+$projects = new ProjectService($users, new ProjectRepository());
 
 // ── Route ──
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $route = $uri ?: '/';
 $method = $_SERVER['REQUEST_METHOD'];
 $body = json_decode(file_get_contents('php://input'), true) ?? [];
+
+$projectPathId = null;
+if (preg_match('#^/projects/([^/]+)$#', $route, $projectPathMatch)) {
+    $projectPathId = $projectPathMatch[1];
+}
 
 try {
     $result = match (true) {
@@ -62,6 +70,32 @@ try {
             session_destroy();
             return Result::ok(200, ['message' => 'Signed out']);
         })(),
+
+        $method === 'GET' && $route === '/projects' => $projects->list(
+            $_SESSION['userId'] ?? null,
+        ),
+
+        $method === 'POST' && $route === '/projects' => $projects->create(
+            $_SESSION['userId'] ?? null,
+            $body['name'] ?? '',
+            $body['description'] ?? null,
+        ),
+
+        $method === 'GET' && $projectPathId !== null => $projects->get(
+            $_SESSION['userId'] ?? null,
+            $projectPathId,
+        ),
+
+        $method === 'PATCH' && $projectPathId !== null => $projects->update(
+            $_SESSION['userId'] ?? null,
+            $projectPathId,
+            $body,
+        ),
+
+        $method === 'DELETE' && $projectPathId !== null => $projects->delete(
+            $_SESSION['userId'] ?? null,
+            $projectPathId,
+        ),
 
         default => null,
     };
