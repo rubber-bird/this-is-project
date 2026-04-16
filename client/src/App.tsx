@@ -1,14 +1,38 @@
-import { useState } from 'react';
-import { Container, Typography, Link, Stack } from '@mui/material';
+import { useEffect, useState } from "react";
+import { Container, Typography, Link, Stack } from "@mui/material";
 
-import type { User } from './api';
-import { Login } from './auth/Login';
-import { SignUp } from './auth/SignUp';
-import { EntryPage } from './entry/EntryPage';
+import { whoami, type User } from "./api";
+import { Login } from "./auth/Login";
+import { SignUp } from "./auth/SignUp";
+import { EntryPage } from "./entry/EntryPage";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [view, setView] = useState<'login' | 'signup'>('login');
+  const [view, setView] = useState<"login" | "signup">("login");
+  const [authChecked, setAuthChecked] = useState<boolean>(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const u = await whoami();
+        if (!cancelled) setUser(u);
+      } catch {
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setAuthChecked(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!authChecked) {
+    return null;
+  }
 
   if (user) {
     return <EntryPage user={user} onLogout={() => setUser(null)} />;
@@ -21,22 +45,22 @@ function App() {
           CSC 350 - Project 1
         </Typography>
 
-        {view === 'login' ? (
+        {view === "login" ? (
           <>
             <Login onSuccess={setUser} />
             <Typography>
-              No account?{' '}
-              <Link component="button" onClick={() => setView('signup')}>
+              No account?{" "}
+              <Link component="button" onClick={() => setView("signup")}>
                 Sign up
               </Link>
             </Typography>
           </>
         ) : (
           <>
-            <SignUp onSuccess={() => setView('login')} />
+            <SignUp onSuccess={() => setView("login")} />
             <Typography>
-              Already have an account?{' '}
-              <Link component="button" onClick={() => setView('login')}>
+              Already have an account?{" "}
+              <Link component="button" onClick={() => setView("login")}>
                 Sign in
               </Link>
             </Typography>
