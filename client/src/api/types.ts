@@ -28,3 +28,13 @@ export interface Project {
   created_at: string | null;
   updated_at: string | null;
 }
+
+export interface WorkflowStatus {
+  id: string;
+  project_id: string;
+  name: string;
+  color: string | null;
+  position: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
