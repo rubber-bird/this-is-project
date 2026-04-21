@@ -7,7 +7,9 @@ require_once __DIR__ . '/src/util/ResultMapper.php';
 require_once __DIR__ . '/src/service/Auth.php';
 require_once __DIR__ . '/src/service/AccountService.php';
 require_once __DIR__ . '/src/service/ProjectService.php';
+require_once __DIR__ . '/src/service/WorkflowStatusService.php';
 require_once __DIR__ . '/src/data/ProjectRepository.php';
+require_once __DIR__ . '/src/data/WorkflowStatusRepository.php';
 
 header('Content-Type: application/json');
 
@@ -29,7 +31,9 @@ $users = new UserRepository();
 $accounts = new AccountRepository();
 $auth = new Auth($users, $accounts);
 $account = new AccountService($users);
-$projects = new ProjectService($users, new ProjectRepository());
+$projectRepo = new ProjectRepository();
+$projects = new ProjectService($users, $projectRepo);
+$workflowStatuses = new WorkflowStatusService($users, $projectRepo, new WorkflowStatusRepository());
 
 // ── Route ──
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -40,6 +44,11 @@ $body = json_decode(file_get_contents('php://input'), true) ?? [];
 $projectPathId = null;
 if (preg_match('#^/projects/([^/]+)$#', $route, $projectPathMatch)) {
     $projectPathId = $projectPathMatch[1];
+}
+
+$projectWorkflowStatusesId = null;
+if (preg_match('#^/projects/([^/]+)/workflow-statuses$#', $route, $workflowStatusesMatch)) {
+    $projectWorkflowStatusesId = $workflowStatusesMatch[1];
 }
 
 try {
@@ -95,6 +104,17 @@ try {
         $method === 'DELETE' && $projectPathId !== null => $projects->delete(
             $_SESSION['userId'] ?? null,
             $projectPathId,
+        ),
+
+        $method === 'GET' && $projectWorkflowStatusesId !== null => $workflowStatuses->list(
+            $_SESSION['userId'] ?? null,
+            $projectWorkflowStatusesId,
+        ),
+
+        $method === 'POST' && $projectWorkflowStatusesId !== null => $workflowStatuses->createMany(
+            $_SESSION['userId'] ?? null,
+            $projectWorkflowStatusesId,
+            $body['statuses'] ?? null,
         ),
 
         default => null,

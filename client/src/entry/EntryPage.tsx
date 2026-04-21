@@ -17,12 +17,14 @@ import {
   signOut,
   listProjects,
   createProject,
+  createWorkflowStatuses,
   updateProject,
   deleteProject,
 } from "../api";
 import { ProjectSidebar } from "./components/ProjectSidebar";
 import { ProjectDetails } from "./components/ProjectDetails";
 import { ProjectDialog } from "./components/ProjectDialog";
+import type { StatusDraft } from "./components/StatusRow";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog";
 
 const DRAWER_WIDTH = 240;
@@ -44,8 +46,10 @@ export const EntryPage = ({
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const [dialogMode, setDialogMode] = useState<ProjectDialogMode>(null);
+  const [dialogStep, setDialogStep] = useState<1 | 2>(1);
   const [dialogName, setDialogName] = useState("");
   const [dialogDescription, setDialogDescription] = useState("");
+  const [dialogStatuses, setDialogStatuses] = useState<StatusDraft[]>([]);
   const [dialogError, setDialogError] = useState("");
   const [dialogSubmitting, setDialogSubmitting] = useState(false);
 
@@ -91,16 +95,22 @@ export const EntryPage = ({
 
   const openCreateDialog = () => {
     setDialogMode("create");
+    setDialogStep(1);
     setDialogName("");
     setDialogDescription("");
+    setDialogStatuses([
+      { key: crypto.randomUUID(), name: "", color: "" },
+    ]);
     setDialogError("");
   };
 
   const openEditDialog = () => {
     if (!selected) return;
     setDialogMode("edit");
+    setDialogStep(1);
     setDialogName(selected.name);
     setDialogDescription(selected.description ?? "");
+    setDialogStatuses([]);
     setDialogError("");
   };
 
@@ -109,20 +119,54 @@ export const EntryPage = ({
     setDialogMode(null);
   };
 
+  const handleDialogNext = () => {
+    setDialogError("");
+    if (dialogName.trim() === "") {
+      setDialogError("Name is required");
+      return;
+    }
+    setDialogStep(2);
+  };
+
+  const handleDialogBack = () => {
+    if (dialogSubmitting) return;
+    setDialogError("");
+    setDialogStep(1);
+  };
+
   const handleDialogSubmit = async () => {
     setDialogError("");
     const name = dialogName.trim();
     if (!name) {
       setDialogError("Name is required");
+      setDialogStep(1);
       return;
     }
+
     setDialogSubmitting(true);
     try {
       if (dialogMode === "create") {
+        const rows = dialogStatuses
+          .map((s) => ({ name: s.name.trim(), color: s.color || null }))
+          .filter((s) => s.name !== "");
+        if (rows.length === 0) {
+          setDialogError("Add at least one status");
+          setDialogSubmitting(false);
+          return;
+        }
         const created = await createProject({
           name,
           description: dialogDescription.trim() || null,
         });
+        try {
+          await createWorkflowStatuses(created.id, rows);
+        } catch (e) {
+          setDialogError(e instanceof Error ? e.message : "Request failed");
+          await refreshProjects();
+          setSelectedId(created.id);
+          setDialogSubmitting(false);
+          return;
+        }
         await refreshProjects();
         setSelectedId(created.id);
       } else if (dialogMode === "edit" && selected) {
@@ -239,12 +283,17 @@ export const EntryPage = ({
 
       <ProjectDialog
         mode={dialogMode}
+        step={dialogStep}
         name={dialogName}
         description={dialogDescription}
+        statuses={dialogStatuses}
         error={dialogError}
         submitting={dialogSubmitting}
         onNameChange={setDialogName}
         onDescriptionChange={setDialogDescription}
+        onStatusesChange={setDialogStatuses}
+        onNext={handleDialogNext}
+        onBack={handleDialogBack}
         onClose={closeDialog}
         onSubmit={() => void handleDialogSubmit()}
       />
