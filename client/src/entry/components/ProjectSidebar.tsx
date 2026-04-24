@@ -11,6 +11,7 @@ import {
   ListItemText,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import { Link as RouterLink, useMatch } from "react-router-dom";
 
 import type { Project } from "../../api";
 
@@ -20,8 +21,6 @@ type ProjectSidebarProps = {
   loading: boolean;
   loadError: string;
   projects: Project[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
   onCreate: () => void;
 };
 
@@ -31,10 +30,11 @@ export function ProjectSidebar({
   loading,
   loadError,
   projects,
-  selectedId,
-  onSelect,
   onCreate,
 }: ProjectSidebarProps) {
+  const match = useMatch("/projects/:projectId/*");
+  const selectedId = match?.params.projectId ?? null;
+
   return (
     <Drawer
       variant="persistent"
@@ -88,8 +88,9 @@ export function ProjectSidebar({
             projects.map((project) => (
               <ListItemButton
                 key={project.id}
+                component={RouterLink}
+                to={`/projects/${project.id}`}
                 selected={project.id === selectedId}
-                onClick={() => onSelect(project.id)}
               >
                 <ListItemText
                   primary={project.name}

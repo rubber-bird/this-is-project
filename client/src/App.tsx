@@ -1,73 +1,44 @@
-import { useEffect, useState } from "react";
-import { Container, Typography, Link, Stack } from "@mui/material";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
-import { whoami, type User } from "./api";
-import { Login } from "./auth/Login";
-import { SignUp } from "./auth/SignUp";
-import { EntryPage } from "./entry/EntryPage";
+import { AuthProvider } from "./auth/AuthContext";
+import { RequireAuth } from "./auth/RequireAuth";
+import { RedirectIfAuthed } from "./auth/RedirectIfAuthed";
+import { AuthLayout } from "./pages/AuthLayout";
+import { LoginPage } from "./pages/LoginPage";
+import { SignUpPage } from "./pages/SignUpPage";
+import { AppShell } from "./entry/AppShell";
+import { ProjectsIndex } from "./entry/ProjectsIndex";
+import { ProjectPage } from "./entry/ProjectPage";
+import { TaskPage } from "./entry/TaskPage";
 
 function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [view, setView] = useState<"login" | "signup">("login");
-  const [authChecked, setAuthChecked] = useState<boolean>(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const u = await whoami();
-        if (!cancelled) setUser(u);
-      } catch {
-        if (!cancelled) setUser(null);
-      } finally {
-        if (!cancelled) setAuthChecked(true);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (!authChecked) {
-    return null;
-  }
-
-  if (user) {
-    return <EntryPage user={user} onLogout={() => setUser(null)} />;
-  }
-
   return (
-    <Container maxWidth="sm" sx={{ py: 6 }}>
-      <Stack spacing={3} alignItems="center">
-        <Typography variant="h4" fontWeight={500}>
-          CSC 350 - Project 1
-        </Typography>
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route element={<RedirectIfAuthed />}>
+            <Route element={<AuthLayout />}>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignUpPage />} />
+            </Route>
+          </Route>
 
-        {view === "login" ? (
-          <>
-            <Login onSuccess={setUser} />
-            <Typography>
-              No account?{" "}
-              <Link component="button" onClick={() => setView("signup")}>
-                Sign up
-              </Link>
-            </Typography>
-          </>
-        ) : (
-          <>
-            <SignUp onSuccess={() => setView("login")} />
-            <Typography>
-              Already have an account?{" "}
-              <Link component="button" onClick={() => setView("login")}>
-                Sign in
-              </Link>
-            </Typography>
-          </>
-        )}
-      </Stack>
-    </Container>
+          <Route element={<RequireAuth />}>
+            <Route element={<AppShell />}>
+              <Route path="/" element={<Navigate to="/projects" replace />} />
+              <Route path="/projects" element={<ProjectsIndex />} />
+              <Route path="/projects/:projectId" element={<ProjectPage />} />
+              <Route
+                path="/projects/:projectId/tasks/:taskId"
+                element={<TaskPage />}
+              />
+            </Route>
+          </Route>
+
+          <Route path="*" element={<Navigate to="/projects" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 

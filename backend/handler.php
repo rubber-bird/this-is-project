@@ -8,8 +8,10 @@ require_once __DIR__ . '/src/service/Auth.php';
 require_once __DIR__ . '/src/service/AccountService.php';
 require_once __DIR__ . '/src/service/ProjectService.php';
 require_once __DIR__ . '/src/service/WorkflowStatusService.php';
+require_once __DIR__ . '/src/service/TaskService.php';
 require_once __DIR__ . '/src/data/ProjectRepository.php';
 require_once __DIR__ . '/src/data/WorkflowStatusRepository.php';
+require_once __DIR__ . '/src/data/TaskRepository.php';
 
 header('Content-Type: application/json');
 
@@ -33,7 +35,9 @@ $auth = new Auth($users, $accounts);
 $account = new AccountService($users);
 $projectRepo = new ProjectRepository();
 $projects = new ProjectService($users, $projectRepo);
-$workflowStatuses = new WorkflowStatusService($users, $projectRepo, new WorkflowStatusRepository());
+$workflowStatusRepo = new WorkflowStatusRepository();
+$workflowStatuses = new WorkflowStatusService($users, $projectRepo, $workflowStatusRepo);
+$tasks = new TaskService($users, $projectRepo, $workflowStatusRepo, new TaskRepository());
 
 // ── Route ──
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -49,6 +53,18 @@ if (preg_match('#^/projects/([^/]+)$#', $route, $projectPathMatch)) {
 $projectWorkflowStatusesId = null;
 if (preg_match('#^/projects/([^/]+)/workflow-statuses$#', $route, $workflowStatusesMatch)) {
     $projectWorkflowStatusesId = $workflowStatusesMatch[1];
+}
+
+$projectTasksId = null;
+if (preg_match('#^/projects/([^/]+)/tasks$#', $route, $tasksMatch)) {
+    $projectTasksId = $tasksMatch[1];
+}
+
+$taskPathProjectId = null;
+$taskPathTaskId = null;
+if (preg_match('#^/projects/([^/]+)/tasks/([^/]+)$#', $route, $taskMatch)) {
+    $taskPathProjectId = $taskMatch[1];
+    $taskPathTaskId = $taskMatch[2];
 }
 
 try {
@@ -115,6 +131,24 @@ try {
             $_SESSION['userId'] ?? null,
             $projectWorkflowStatusesId,
             $body['statuses'] ?? null,
+        ),
+
+        $method === 'GET' && $projectTasksId !== null => $tasks->list(
+            $_SESSION['userId'] ?? null,
+            $projectTasksId,
+        ),
+
+        $method === 'POST' && $projectTasksId !== null => $tasks->create(
+            $_SESSION['userId'] ?? null,
+            $projectTasksId,
+            $body['title'] ?? '',
+            $body['description'] ?? null,
+        ),
+
+        $method === 'GET' && $taskPathProjectId !== null && $taskPathTaskId !== null => $tasks->get(
+            $_SESSION['userId'] ?? null,
+            $taskPathProjectId,
+            $taskPathTaskId,
         ),
 
         default => null,
