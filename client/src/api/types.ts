@@ -38,3 +38,14 @@ export interface WorkflowStatus {
   created_at: string | null;
   updated_at: string | null;
 }
+
+export interface Task {
+  id: string;
+  project_id: string;
+  workflow_status_id: string;
+  title: string;
+  description: string | null;
+  created_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}

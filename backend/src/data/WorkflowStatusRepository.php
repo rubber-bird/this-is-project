@@ -34,6 +34,14 @@ class WorkflowStatusRepository
         return $row ? Maybe::some($this->hydrate($row)) : Maybe::none();
     }
 
+    public function findFirstByProjectId(string $projectId): Maybe {
+        $stmt = Database::get()->prepare(self::SELECT_BASE . ' WHERE project_id = ? ORDER BY position ASC LIMIT 1');
+        $stmt->execute([$projectId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ? Maybe::some($this->hydrate($row)) : Maybe::none();
+    }
+
     public function nextPosition(string $projectId): int {
         $stmt = Database::get()->prepare('SELECT COALESCE(MAX(position), -1) + 1 AS next FROM workflow_statuses WHERE project_id = ?');
         $stmt->execute([$projectId]);
