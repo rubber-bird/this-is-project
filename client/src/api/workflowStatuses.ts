@@ -19,3 +19,30 @@ export function createWorkflowStatuses(
     },
   );
 }
+
+export function updateWorkflowStatus(
+  projectId: string,
+  statusId: string,
+  patch: { name?: string; color?: string | null },
+): Promise<WorkflowStatus> {
+  return apiRequest<WorkflowStatus>(
+    `/projects/${encodeURIComponent(projectId)}/workflow-statuses/${encodeURIComponent(statusId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    },
+  );
+}
+
+export function reorderWorkflowStatuses(
+  projectId: string,
+  order: string[],
+): Promise<WorkflowStatus[]> {
+  return apiRequest<WorkflowStatus[]>(
+    `/projects/${encodeURIComponent(projectId)}/workflow-statuses`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ order }),
+    },
+  );
+}

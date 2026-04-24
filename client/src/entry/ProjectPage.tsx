@@ -9,6 +9,7 @@ import {
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import TuneIcon from "@mui/icons-material/Tune";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { deleteProject, updateProject } from "../api";
@@ -17,6 +18,7 @@ import { ProjectBoard } from "./components/ProjectBoard";
 import { ProjectDialog } from "./components/ProjectDialog";
 import type { StatusDraft } from "./components/StatusRow";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog";
+import { ManageStatusesDialog } from "./components/ManageStatusesDialog";
 
 export function ProjectPage() {
   const { projectId = "" } = useParams();
@@ -33,6 +35,9 @@ export function ProjectPage() {
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  const [manageOpen, setManageOpen] = useState(false);
+  const [boardKey, setBoardKey] = useState(0);
 
   const openEdit = () => {
     if (!project) return;
@@ -134,6 +139,13 @@ export function ProjectPage() {
             Edit
           </Button>
           <Button
+            variant="outlined"
+            startIcon={<TuneIcon />}
+            onClick={() => setManageOpen(true)}
+          >
+            Manage statuses
+          </Button>
+          <Button
             color="error"
             variant="outlined"
             startIcon={<DeleteOutlineIcon />}
@@ -144,7 +156,7 @@ export function ProjectPage() {
         </Stack>
       </Stack>
       <Divider />
-      <ProjectBoard projectId={project.id} />
+      <ProjectBoard key={boardKey} projectId={project.id} />
 
       <ProjectDialog
         mode={editOpen ? "edit" : null}
@@ -169,6 +181,13 @@ export function ProjectPage() {
         submitting={deleteSubmitting}
         onClose={() => !deleteSubmitting && setDeleteOpen(false)}
         onConfirm={() => void handleDelete()}
+      />
+
+      <ManageStatusesDialog
+        open={manageOpen}
+        projectId={project.id}
+        onClose={() => setManageOpen(false)}
+        onSaved={() => setBoardKey((k) => k + 1)}
       />
     </Stack>
   );
