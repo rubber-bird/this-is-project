@@ -55,6 +55,13 @@ if (preg_match('#^/projects/([^/]+)/workflow-statuses$#', $route, $workflowStatu
     $projectWorkflowStatusesId = $workflowStatusesMatch[1];
 }
 
+$workflowStatusPathProjectId = null;
+$workflowStatusPathStatusId = null;
+if (preg_match('#^/projects/([^/]+)/workflow-statuses/([^/]+)$#', $route, $workflowStatusPathMatch)) {
+    $workflowStatusPathProjectId = $workflowStatusPathMatch[1];
+    $workflowStatusPathStatusId = $workflowStatusPathMatch[2];
+}
+
 $projectTasksId = null;
 if (preg_match('#^/projects/([^/]+)/tasks$#', $route, $tasksMatch)) {
     $projectTasksId = $tasksMatch[1];
@@ -131,6 +138,19 @@ try {
             $_SESSION['userId'] ?? null,
             $projectWorkflowStatusesId,
             $body['statuses'] ?? null,
+        ),
+
+        $method === 'PUT' && $projectWorkflowStatusesId !== null => $workflowStatuses->reorder(
+            $_SESSION['userId'] ?? null,
+            $projectWorkflowStatusesId,
+            $body['order'] ?? null,
+        ),
+
+        $method === 'PATCH' && $workflowStatusPathProjectId !== null && $workflowStatusPathStatusId !== null => $workflowStatuses->update(
+            $_SESSION['userId'] ?? null,
+            $workflowStatusPathProjectId,
+            $workflowStatusPathStatusId,
+            $body,
         ),
 
         $method === 'GET' && $projectTasksId !== null => $tasks->list(

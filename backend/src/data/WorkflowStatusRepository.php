@@ -67,6 +67,42 @@ class WorkflowStatusRepository
         return $this->findByIdAndProjectId($id, $status->projectId)->value();
     }
 
+    public function update(string $id, string $projectId, string $name, ?string $color): void {
+        $stmt = Database::get()->prepare(
+            'UPDATE workflow_statuses SET name = ?, color = ? WHERE id = ? AND project_id = ?'
+        );
+        $stmt->execute([$name, $color, $id, $projectId]);
+    }
+
+    /** @param array<string, int> $changes map of id => new position */
+    public function updatePositions(string $projectId, array $changes): void {
+        if (empty($changes)) {
+            return;
+        }
+
+        // Two-pass update to dodge uq_ws_project_position during cycles (e.g. swaps):
+        // shift every changing row to a distinct negative, then set finals.
+        $pdo = Database::get();
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare(
+                'UPDATE workflow_statuses SET position = ? WHERE id = ? AND project_id = ?'
+            );
+            $i = 0;
+            foreach (array_keys($changes) as $id) {
+                $stmt->execute([-1 - $i, $id, $projectId]);
+                $i++;
+            }
+            foreach ($changes as $id => $pos) {
+                $stmt->execute([$pos, $id, $projectId]);
+            }
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
+
     private function hydrate(array $row): WorkflowStatus {
         return new WorkflowStatus(
             id: $row['id'],

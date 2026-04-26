@@ -101,6 +101,115 @@ class WorkflowStatusService
         return Result::ok(201, array_map(fn (WorkflowStatus $s) => $s->toPublicArray(), $saved));
     }
 
+    /** @param array<string, mixed> $patch */
+    public function update(?string $userId, string $projectId, string $statusId, array $patch): Result {
+        $projectResult = $this->requireProject($userId, $projectId);
+        if ($projectResult->failed()) {
+            return $projectResult;
+        }
+
+        $existingMaybe = $this->statuses->findByIdAndProjectId($statusId, $projectId);
+        if (!$existingMaybe->hasValue()) {
+            return Result::fail(404, 'not_found', ['message' => 'Status not found']);
+        }
+        $existing = $existingMaybe->value();
+
+        $hasName  = array_key_exists('name', $patch);
+        $hasColor = array_key_exists('color', $patch);
+        if (!$hasName && !$hasColor) {
+            return Result::fail(400, 'validation', ['message' => 'Nothing to update']);
+        }
+
+        $newName = $hasName ? trim((string) $patch['name']) : $existing->name;
+        if ($newName === '') {
+            return Result::fail(400, 'validation', ['message' => 'Name cannot be empty']);
+        }
+        if (strlen($newName) > self::NAME_MAX) {
+            return Result::fail(400, 'validation', ['message' => 'Name must be at most ' . self::NAME_MAX . ' characters']);
+        }
+
+        if ($hasColor) {
+            $newColor = $this->normalizeColor($patch['color']);
+            if ($newColor === false) {
+                return Result::fail(400, 'validation', ['message' => 'Color must be a hex code like #RRGGBB']);
+            }
+        } else {
+            $newColor = $existing->color;
+        }
+
+        if (strcasecmp($newName, $existing->name) !== 0) {
+            $conflict = $this->statuses->findByProjectIdAndName($projectId, $newName);
+            if ($conflict->hasValue() && $conflict->value()->id !== $existing->id) {
+                return Result::fail(409, 'conflict', ['message' => "A status named \"{$newName}\" already exists"]);
+            }
+        }
+
+        $this->statuses->update($existing->id, $projectId, $newName, $newColor);
+
+        $updated = $this->statuses->findByIdAndProjectId($existing->id, $projectId)->value();
+
+        return Result::ok(200, $updated->toPublicArray());
+    }
+
+    public function reorder(?string $userId, string $projectId, mixed $orderInput): Result {
+        $projectResult = $this->requireProject($userId, $projectId);
+        if ($projectResult->failed()) {
+            return $projectResult;
+        }
+
+        if (!is_array($orderInput) || array_is_list($orderInput) === false) {
+            return Result::fail(400, 'validation', ['message' => 'order must be a list of status ids']);
+        }
+
+        $existing = $this->statuses->findByProjectId($projectId);
+        if (count($orderInput) !== count($existing)) {
+            return Result::fail(400, 'validation', ['message' => 'order must include every status exactly once']);
+        }
+
+        $existingIds = [];
+        foreach ($existing as $s) {
+            $existingIds[$s->id] = true;
+        }
+
+        $seen = [];
+        foreach ($orderInput as $index => $id) {
+            if (!is_string($id) || $id === '') {
+                return Result::fail(400, 'validation', ['message' => "order[{$index}] must be a string id"]);
+            }
+            if (isset($seen[$id])) {
+                return Result::fail(400, 'validation', ['message' => "Duplicate id at position {$index}"]);
+            }
+            if (!isset($existingIds[$id])) {
+                return Result::fail(400, 'validation', ['message' => "Unknown status id: {$id}"]);
+            }
+            $seen[$id] = true;
+        }
+
+        $currentPositions = [];
+        foreach ($existing as $s) {
+            $currentPositions[$s->id] = $s->position;
+        }
+
+        $changes = [];
+        foreach ($orderInput as $index => $id) {
+            if ($currentPositions[$id] !== $index) {
+                $changes[$id] = $index;
+            }
+        }
+
+        if (count($changes) === 0) {
+            $out = array_map(fn (WorkflowStatus $s) => $s->toPublicArray(), $existing);
+            return Result::ok(200, $out);
+        }
+
+        $this->statuses->updatePositions($projectId, $changes);
+
+        $updated = $this->statuses->findByProjectId($projectId);
+        $out = array_map(fn (WorkflowStatus $s) => $s->toPublicArray(), $updated);
+
+        return Result::ok(200, $out);
+    }
+
     private function requireProject(?string $userId, string $projectId): Result {
         if (!$userId) {
             return Result::fail(401, 'unauthorized', ['message' => 'Not authenticated']);
