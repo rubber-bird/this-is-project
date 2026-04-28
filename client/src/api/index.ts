@@ -7,4 +7,4 @@ export {
   updateWorkflowStatus,
   reorderWorkflowStatuses,
 } from './workflowStatuses';
-export { listTasks, getTask, createTask } from './tasks';
+export { listTasks, getTask, createTask, updateTask } from './tasks';
