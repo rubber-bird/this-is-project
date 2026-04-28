@@ -44,6 +44,13 @@ class TaskRepository
         return $this->findByIdAndProjectId($id, $task->projectId)->value();
     }
 
+    public function update(string $id, string $projectId, string $workflowStatusId): void {
+        $stmt = Database::get()->prepare(
+            'UPDATE tasks SET workflow_status_id = ? WHERE id = ? AND project_id = ?'
+        );
+        $stmt->execute([$workflowStatusId, $id, $projectId]);
+    }
+
     private function hydrate(array $row): Task {
         return new Task(
             id: $row['id'],

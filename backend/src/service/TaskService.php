@@ -82,6 +82,43 @@ class TaskService
         return Result::ok(201, $task->toPublicArray());
     }
 
+    /** @param array<string, mixed> $patch */
+    public function update(?string $userId, string $projectId, string $taskId, array $patch): Result {
+        $projectResult = $this->requireProject($userId, $projectId);
+        if ($projectResult->failed()) {
+            return $projectResult;
+        }
+
+        $taskMaybe = $this->tasks->findByIdAndProjectId($taskId, $projectId);
+        if (!$taskMaybe->hasValue()) {
+            return Result::fail(404, 'not_found', ['message' => 'Task not found']);
+        }
+        $existing = $taskMaybe->value();
+
+        if (!array_key_exists('workflow_status_id', $patch)) {
+            return Result::fail(400, 'validation', ['message' => 'Nothing to update']);
+        }
+
+        $targetStatusId = $patch['workflow_status_id'];
+        if (!is_string($targetStatusId) || $targetStatusId === '') {
+            return Result::fail(400, 'validation', ['message' => 'workflow_status_id must be a non-empty string']);
+        }
+
+        if ($targetStatusId === $existing->workflowStatusId) {
+            return Result::ok(200, $existing->toPublicArray());
+        }
+
+        if (!$this->statuses->findByIdAndProjectId($targetStatusId, $projectId)->hasValue()) {
+            return Result::fail(400, 'validation', ['message' => 'Status does not belong to this project']);
+        }
+
+        $this->tasks->update($existing->id, $projectId, $targetStatusId);
+
+        $updated = $this->tasks->findByIdAndProjectId($existing->id, $projectId)->value();
+
+        return Result::ok(200, $updated->toPublicArray());
+    }
+
     /** @return Result value: ['user' => User, 'project' => Project] */
     private function requireProject(?string $userId, string $projectId): Result {
         if (!$userId) {
