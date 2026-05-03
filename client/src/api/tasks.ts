@@ -31,3 +31,17 @@ export function createTask(
     },
   );
 }
+
+export function updateTask(
+  projectId: string,
+  taskId: string,
+  patch: { workflow_status_id?: string },
+): Promise<Task> {
+  return apiRequest<Task>(
+    `/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    },
+  );
+}

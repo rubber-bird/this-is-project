@@ -171,6 +171,13 @@ try {
             $taskPathTaskId,
         ),
 
+        $method === 'PATCH' && $taskPathProjectId !== null && $taskPathTaskId !== null => $tasks->update(
+            $_SESSION['userId'] ?? null,
+            $taskPathProjectId,
+            $taskPathTaskId,
+            $body,
+        ),
+
         default => null,
     };
 } catch (Throwable $e) {
