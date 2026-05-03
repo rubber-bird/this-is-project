@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Alert,
   Button,
@@ -7,39 +8,52 @@ import {
   DialogTitle,
   Stack,
   TextField,
+  Typography,
 } from "@mui/material";
+import { useCreateBlockNote } from "@blocknote/react";
+import { TaskDescriptionEditor } from "./TaskDescriptionEditor";
+import { emptyTaskDescriptionBlocks } from "../utils/taskDescriptionBlocks";
 
 type TaskDialogProps = {
   open: boolean;
   title: string;
-  description: string;
   error: string;
   submitting: boolean;
   onTitleChange: (value: string) => void;
-  onDescriptionChange: (value: string) => void;
   onClose: () => void;
-  onSubmit: () => void;
+  onSubmit: (title: string, description: string) => void;
 };
 
 export function TaskDialog({
   open,
   title,
-  description,
   error,
   submitting,
   onTitleChange,
-  onDescriptionChange,
   onClose,
   onSubmit,
 }: TaskDialogProps) {
+  const editor = useCreateBlockNote({});
+
+  useEffect(() => {
+    if (!open) return;
+    editor.replaceBlocks(editor.document, emptyTaskDescriptionBlocks);
+  }, [open, editor]);
+
   const canSubmit = !submitting && title.trim() !== "";
 
+  const handleSubmit = () => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    onSubmit(trimmed, JSON.stringify(editor.document));
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle color="text.primary">New task</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
-          {error && <Alert severity="error">{error}</Alert>}
+          {error ? <Alert severity="error">{error}</Alert> : null}
           <TextField
             label="Title"
             required
@@ -48,14 +62,13 @@ export function TaskDialog({
             onChange={(e) => onTitleChange(e.target.value)}
             disabled={submitting}
           />
-          <TextField
-            label="Description"
-            fullWidth
-            multiline
-            minRows={3}
-            value={description}
-            onChange={(e) => onDescriptionChange(e.target.value)}
-            disabled={submitting}
+          <Typography variant="body2" color="text.secondary" sx={{ mb: -0.5 }}>
+            Description
+          </Typography>
+          <TaskDescriptionEditor
+            editor={editor}
+            editable={!submitting}
+            variant="dialog"
           />
         </Stack>
       </DialogContent>
@@ -63,7 +76,11 @@ export function TaskDialog({
         <Button onClick={onClose} disabled={submitting}>
           Cancel
         </Button>
-        <Button variant="contained" onClick={onSubmit} disabled={!canSubmit}>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={!canSubmit}
+        >
           {submitting ? "Creating…" : "Create"}
         </Button>
       </DialogActions>

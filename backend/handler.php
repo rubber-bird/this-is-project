@@ -125,6 +125,13 @@ try {
             $body,
         ),
 
+        $method === 'PATCH' && $taskPathProjectId !== null && $taskPathTaskId !== null => $tasks->update(
+            $_SESSION['userId'] ?? null,
+            $taskPathProjectId,
+            $taskPathTaskId,
+            $body,
+        ),
+
         $method === 'DELETE' && $projectPathId !== null => $projects->delete(
             $_SESSION['userId'] ?? null,
             $projectPathId,

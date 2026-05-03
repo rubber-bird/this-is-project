@@ -44,11 +44,43 @@ class TaskRepository
         return $this->findByIdAndProjectId($id, $task->projectId)->value();
     }
 
-    public function update(string $id, string $projectId, string $workflowStatusId): void {
-        $stmt = Database::get()->prepare(
-            'UPDATE tasks SET workflow_status_id = ? WHERE id = ? AND project_id = ?'
-        );
-        $stmt->execute([$workflowStatusId, $id, $projectId]);
+    /**
+     * @param array{title?: string, description?: string|null, workflow_status_id?: string} $fields
+     */
+    public function update(string $id, string $projectId, array $fields): Task {
+        $columnMap = [
+            'title' => 'title',
+            'description' => 'description',
+            'workflow_status_id' => 'workflow_status_id',
+        ];
+
+        $sets = [];
+        $params = [];
+        foreach ($columnMap as $key => $column) {
+            if (!array_key_exists($key, $fields)) {
+                continue;
+            }
+            $sets[] = "{$column} = ?";
+            $params[] = $fields[$key];
+        }
+
+        if ($sets === []) {
+            $maybe = $this->findByIdAndProjectId($id, $projectId);
+            if (!$maybe->hasValue()) {
+                throw new RuntimeException('Task not found');
+            }
+
+            return $maybe->value();
+        }
+
+        $params[] = $id;
+        $params[] = $projectId;
+
+        $sql = 'UPDATE tasks SET ' . implode(', ', $sets) . ' WHERE id = ? AND project_id = ?';
+        $stmt = Database::get()->prepare($sql);
+        $stmt->execute($params);
+
+        return $this->findByIdAndProjectId($id, $projectId)->value();
     }
 
     public function reassignByStatus(string $projectId, string $fromStatusId, string $toStatusId): void {
