@@ -1,17 +1,89 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Box,
   Button,
   CircularProgress,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Link as RouterLink, useParams } from "react-router-dom";
+import { useCreateBlockNote } from "@blocknote/react";
 
-import { getTask, type Task } from "../api";
+import { getTask, updateTask, type Task } from "../api";
 import { useSetTaskBreadcrumb } from "./BreadcrumbContext";
+import { TaskDescriptionEditor } from "./components/TaskDescriptionEditor";
+import { blocksFromStoredDescription } from "./utils/taskDescriptionBlocks";
+
+function TaskEditor({
+  task,
+  onSaved,
+}: {
+  task: Task;
+  onSaved: (t: Task) => void;
+}) {
+  const [title, setTitle] = useState(task.title);
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const editor = useCreateBlockNote({}, [task.id]);
+
+  useEffect(() => {
+    setTitle(task.title);
+    const blocks = blocksFromStoredDescription(task.description);
+    editor.replaceBlocks(editor.document, blocks);
+  }, [task.id, task.title, task.description, editor]);
+
+  const handleSave = useCallback(async () => {
+    const trimmed = title.trim();
+    if (!trimmed) {
+      setSaveError("Title is required");
+      return;
+    }
+    setSaveError("");
+    setSaving(true);
+    try {
+      const description = JSON.stringify(editor.document);
+      const updated = await updateTask(task.project_id, task.id, {
+        title: trimmed,
+        description,
+      });
+      onSaved(updated);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }, [editor, task.id, task.project_id, title, onSaved]);
+
+  return (
+    <Stack spacing={2} alignItems="stretch" maxWidth={900}>
+      <TextField
+        label="Title"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        fullWidth
+        disabled={saving}
+      />
+      {saveError ? <Alert severity="error">{saveError}</Alert> : null}
+      <TaskDescriptionEditor
+        editor={editor}
+        editable={!saving}
+        variant="page"
+      />
+      <Button
+        variant="contained"
+        onClick={() => void handleSave()}
+        disabled={saving}
+        sx={{ alignSelf: "flex-start" }}
+      >
+        {saving ? "Saving…" : "Save changes"}
+      </Button>
+    </Stack>
+  );
+}
 
 export function TaskPage() {
   const { projectId = "", taskId = "" } = useParams();
@@ -64,7 +136,7 @@ export function TaskPage() {
   }
 
   return (
-    <Stack spacing={2} alignItems="flex-start" maxWidth={720}>
+    <Stack spacing={2} alignItems="flex-start" maxWidth={920}>
       <Button
         component={RouterLink}
         to={`/projects/${projectId}`}
@@ -73,22 +145,7 @@ export function TaskPage() {
       >
         Back to project
       </Button>
-      <Typography variant="h4" component="h1" color="text.primary">
-        {task.title}
-      </Typography>
-      {task.description ? (
-        <Typography
-          variant="body1"
-          color="text.primary"
-          sx={{ whiteSpace: "pre-wrap" }}
-        >
-          {task.description}
-        </Typography>
-      ) : (
-        <Typography variant="body2" color="text.secondary">
-          No description
-        </Typography>
-      )}
+      <TaskEditor key={task.id} task={task} onSaved={setTask} />
     </Stack>
   );
 }

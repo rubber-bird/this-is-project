@@ -89,32 +89,49 @@ class TaskService
             return $projectResult;
         }
 
-        $taskMaybe = $this->tasks->findByIdAndProjectId($taskId, $projectId);
-        if (!$taskMaybe->hasValue()) {
+        $maybe = $this->tasks->findByIdAndProjectId($taskId, $projectId);
+        if (!$maybe->hasValue()) {
             return Result::fail(404, 'not_found', ['message' => 'Task not found']);
         }
-        $existing = $taskMaybe->value();
 
-        if (!array_key_exists('workflow_status_id', $patch)) {
-            return Result::fail(400, 'validation', ['message' => 'Nothing to update']);
+        $fields = [];
+
+        if (array_key_exists('title', $patch)) {
+            $trimTitle = trim((string) $patch['title']);
+            if ($trimTitle === '') {
+                return Result::fail(400, 'validation', ['message' => 'Title cannot be empty']);
+            }
+            if (strlen($trimTitle) > self::TITLE_MAX) {
+                return Result::fail(400, 'validation', ['message' => 'Title must be at most ' . self::TITLE_MAX . ' characters']);
+            }
+            $fields['title'] = $trimTitle;
         }
 
-        $targetStatusId = $patch['workflow_status_id'];
-        if (!is_string($targetStatusId) || $targetStatusId === '') {
-            return Result::fail(400, 'validation', ['message' => 'workflow_status_id must be a non-empty string']);
+        if (array_key_exists('description', $patch)) {
+            $desc = $this->normalizeDescription($patch['description']);
+            if ($desc !== null && strlen($desc) > self::DESCRIPTION_MAX) {
+                return Result::fail(400, 'validation', ['message' => 'Description is too long']);
+            }
+            $fields['description'] = $desc;
         }
 
-        if ($targetStatusId === $existing->workflowStatusId) {
-            return Result::ok(200, $existing->toPublicArray());
+        if (array_key_exists('workflow_status_id', $patch)) {
+            $wsId = trim((string) $patch['workflow_status_id']);
+            if ($wsId === '') {
+                return Result::fail(400, 'validation', ['message' => 'workflow_status_id is required when provided']);
+            }
+            $wsMaybe = $this->statuses->findByIdAndProjectId($wsId, $projectId);
+            if (!$wsMaybe->hasValue()) {
+                return Result::fail(400, 'validation', ['message' => 'Invalid workflow status for this project']);
+            }
+            $fields['workflow_status_id'] = $wsId;
         }
 
-        if (!$this->statuses->findByIdAndProjectId($targetStatusId, $projectId)->hasValue()) {
-            return Result::fail(400, 'validation', ['message' => 'Status does not belong to this project']);
+        if ($fields === []) {
+            return Result::fail(400, 'validation', ['message' => 'No valid fields to update']);
         }
 
-        $this->tasks->update($existing->id, $projectId, $targetStatusId);
-
-        $updated = $this->tasks->findByIdAndProjectId($existing->id, $projectId)->value();
+        $updated = $this->tasks->update($taskId, $projectId, $fields);
 
         return Result::ok(200, $updated->toPublicArray());
     }

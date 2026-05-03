@@ -4,103 +4,112 @@ import {
   Box,
   Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
   Paper,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import { useNavigate } from "react-router-dom";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import {
   DndContext,
   DragOverlay,
-  KeyboardSensor,
-  PointerSensor,
-  closestCorners,
   useDroppable,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
+  useDraggable,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { useCreateBlockNote } from "@blocknote/react";
 
-import {
-  createTask,
-  listTasks,
-  listWorkflowStatuses,
-  updateTask,
-  type Task,
-  type WorkflowStatus,
-} from "../../api";
+import { type Task, type WorkflowStatus } from "../../api";
 import { TaskDialog } from "./TaskDialog";
+import { TaskDescriptionEditor } from "./TaskDescriptionEditor";
+import { blocksFromStoredDescription } from "../utils/taskDescriptionBlocks";
+import { useProjectBoard } from "../hooks/useProjectBoard";
 
 type ProjectBoardProps = {
   projectId: string;
 };
 
-type TaskCardProps = {
+const dndTaskId = (id: string) => `task:${id}`;
+const dndColId = (id: string) => `col:${id}`;
+
+function DraggableTaskCard({
+  task,
+  onOpen,
+  disabled,
+}: {
   task: Task;
-  onOpen: () => void;
-};
+  onOpen: (task: Task) => void;
+  disabled: boolean;
+}) {
+  const id = dndTaskId(task.id);
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id,
+      disabled,
+    });
 
-function TaskCard({ task, onOpen }: TaskCardProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: task.id,
-    data: { type: "task", statusId: task.workflow_status_id },
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-  };
+  const style = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        zIndex: 1,
+      }
+    : undefined;
 
   return (
     <Paper
       ref={setNodeRef}
       variant="outlined"
-      onClick={onOpen}
-      style={style}
       {...attributes}
-      {...listeners}
+      style={style}
       sx={{
         p: 1,
+        display: "flex",
+        gap: 0.5,
+        alignItems: "flex-start",
         bgcolor: "background.default",
-        cursor: "grab",
-        "&:active": { cursor: "grabbing" },
+        opacity: isDragging ? 0.45 : 1,
+        cursor: "pointer",
         "&:hover": { borderColor: "primary.main" },
       }}
+      onClick={() => onOpen(task)}
     >
-      <Typography variant="body2" fontWeight={500}>
+      <IconButton
+        size="small"
+        {...listeners}
+        aria-label="Drag to move task"
+        onClick={(e) => e.stopPropagation()}
+        sx={{ mt: -0.25, cursor: "grab" }}
+        disabled={disabled}
+      >
+        <DragIndicatorIcon fontSize="small" />
+      </IconButton>
+      <Typography variant="body2" fontWeight={500} sx={{ flex: 1, pt: 0.25 }}>
         {task.title}
       </Typography>
     </Paper>
   );
 }
 
-type ColumnProps = {
+function StatusColumn({
+  status,
+  columnTasks,
+  onOpenTask,
+  moving,
+}: {
   status: WorkflowStatus;
-  tasks: Task[];
-  onOpenTask: (taskId: string) => void;
-};
-
-function Column({ status, tasks, onOpenTask }: ColumnProps) {
+  columnTasks: Task[];
+  onOpenTask: (task: Task) => void;
+  moving: boolean;
+}) {
+  const colId = dndColId(status.id);
   const { setNodeRef, isOver } = useDroppable({
-    id: `column:${status.id}`,
-    data: { type: "column", statusId: status.id },
+    id: colId,
+    disabled: moving,
   });
 
   return (
@@ -116,157 +125,123 @@ function Column({ status, tasks, onOpenTask }: ColumnProps) {
         display: "flex",
         flexDirection: "column",
         gap: 1,
-        bgcolor: isOver ? "action.hover" : undefined,
+        outline: isOver ? "2px dashed" : "none",
+        outlineColor: "primary.main",
+        outlineOffset: 2,
+        bgcolor: isOver ? "action.hover" : "background.paper",
       }}
     >
       <Typography variant="subtitle2" fontWeight={600}>
         {status.name}
       </Typography>
-      <SortableContext
-        items={tasks.map((t) => t.id)}
-        strategy={verticalListSortingStrategy}
-      >
-        <Stack spacing={1} sx={{ minHeight: 40 }}>
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onOpen={() => onOpenTask(task.id)}
-            />
-          ))}
-        </Stack>
-      </SortableContext>
+      <Stack spacing={1} sx={{ minHeight: 120, flex: 1 }}>
+        {columnTasks.map((task) => (
+          <DraggableTaskCard
+            key={task.id}
+            task={task}
+            onOpen={onOpenTask}
+            disabled={moving}
+          />
+        ))}
+      </Stack>
     </Paper>
   );
 }
 
-export function ProjectBoard({ projectId }: ProjectBoardProps) {
-  const navigate = useNavigate();
-
-  const [statuses, setStatuses] = useState<WorkflowStatus[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [moveError, setMoveError] = useState("");
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogTitle, setDialogTitle] = useState("");
-  const [dialogDescription, setDialogDescription] = useState("");
-  const [dialogError, setDialogError] = useState("");
-  const [dialogSubmitting, setDialogSubmitting] = useState(false);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+function TaskEditorModal({
+  open,
+  task,
+  saving,
+  error,
+  onClose,
+  onSave,
+}: {
+  open: boolean;
+  task: Task | null;
+  saving: boolean;
+  error: string;
+  onClose: () => void;
+  onSave: (title: string, description: string) => void;
+}) {
+  const [title, setTitle] = useState("");
+  const editor = useCreateBlockNote({}, [task?.id ?? ""]);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError("");
-    void (async () => {
-      try {
-        const [statusList, taskList] = await Promise.all([
-          listWorkflowStatuses(projectId),
-          listTasks(projectId),
-        ]);
-        if (!cancelled) {
-          setStatuses(statusList);
-          setTasks(taskList);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Failed to load board");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId]);
+    if (!task) return;
+    setTitle(task.title);
+    const blocks = blocksFromStoredDescription(task.description);
+    editor.replaceBlocks(editor.document, blocks);
+  }, [task, editor]);
 
-  const openDialog = () => {
-    setDialogTitle("");
-    setDialogDescription("");
-    setDialogError("");
-    setDialogOpen(true);
+  const handleSave = () => {
+    onSave(title, JSON.stringify(editor.document));
   };
 
-  const closeDialog = () => {
-    if (dialogSubmitting) return;
-    setDialogOpen(false);
-  };
+  return (
+    <Dialog
+      open={open}
+      onClose={saving ? undefined : onClose}
+      fullWidth
+      maxWidth="md"
+    >
+      <DialogTitle color="text.primary">Edit task</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ pt: 1 }}>
+          {error ? <Alert severity="error">{error}</Alert> : null}
+          <TextField
+            label="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            fullWidth
+            disabled={saving}
+          />
+          <TaskDescriptionEditor
+            editor={editor}
+            editable={!saving}
+            variant="page"
+          />
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={saving}>
+          Cancel
+        </Button>
+        <Button variant="contained" onClick={handleSave} disabled={saving}>
+          {saving ? "Saving…" : "Save changes"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
 
-  const handleSubmit = async () => {
-    setDialogError("");
-    const title = dialogTitle.trim();
-    if (!title) {
-      setDialogError("Title is required");
-      return;
-    }
-
-    setDialogSubmitting(true);
-    try {
-      const created = await createTask(projectId, {
-        title,
-        description: dialogDescription.trim() || null,
-      });
-      setTasks((prev) => [...prev, created]);
-      setDialogOpen(false);
-    } catch (e) {
-      setDialogError(e instanceof Error ? e.message : "Request failed");
-    } finally {
-      setDialogSubmitting(false);
-    }
-  };
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setDraggingId(String(event.active.id));
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    setDraggingId(null);
-    const { active, over } = event;
-    if (!over) return;
-
-    const taskId = String(active.id);
-    const sourceStatusId = active.data.current?.statusId as string | undefined;
-    if (!sourceStatusId) return;
-
-    const overData = over.data.current as
-      | { type?: string; statusId?: string }
-      | undefined;
-    let targetStatusId: string | undefined;
-    if (overData?.type === "column") {
-      targetStatusId = overData.statusId;
-    } else if (overData?.type === "task") {
-      targetStatusId = overData.statusId;
-    }
-    if (!targetStatusId || targetStatusId === sourceStatusId) return;
-
-    const snapshot = tasks;
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === taskId ? { ...t, workflow_status_id: targetStatusId! } : t,
-      ),
-    );
-    setMoveError("");
-
-    void (async () => {
-      try {
-        const updated = await updateTask(projectId, taskId, {
-          workflow_status_id: targetStatusId,
-        });
-        setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
-      } catch (e) {
-        setTasks(snapshot);
-        setMoveError(e instanceof Error ? e.message : "Failed to move task");
-      }
-    })();
-  };
+export function ProjectBoard({ projectId }: ProjectBoardProps) {
+  const {
+    statuses,
+    tasksByStatusId,
+    loading,
+    error,
+    moveError,
+    moving,
+    sensors,
+    activeTask,
+    handleDragStart,
+    handleDragEnd,
+    dialogOpen,
+    dialogTitle,
+    dialogError,
+    dialogSubmitting,
+    setDialogTitle,
+    openDialog,
+    closeDialog,
+    handleCreateSubmit,
+    editorOpen,
+    selectedTask,
+    saveError,
+    savingTask,
+    openEditor,
+    closeEditor,
+    handleSaveTask,
+  } = useProjectBoard(projectId);
 
   if (loading) {
     return (
@@ -288,25 +263,23 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
     );
   }
 
-  const draggedTask = tasks.find((t) => t.id === draggingId) ?? null;
-
   return (
     <Stack spacing={2} alignItems="stretch">
-      {moveError && <Alert severity="error">{moveError}</Alert>}
+      {moveError ? <Alert severity="error">{moveError}</Alert> : null}
       <Button
         variant="contained"
         startIcon={<AddIcon />}
         onClick={openDialog}
         sx={{ alignSelf: "flex-start" }}
+        disabled={moving}
       >
         Add task
       </Button>
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
         onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
+        onDragEnd={(e) => void handleDragEnd(e)}
       >
         <Stack
           direction="row"
@@ -315,30 +288,48 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
           alignItems="stretch"
         >
           {statuses.map((status) => (
-            <Column
+            <StatusColumn
               key={status.id}
               status={status}
-              tasks={tasks.filter((t) => t.workflow_status_id === status.id)}
-              onOpenTask={(taskId) =>
-                navigate(`/projects/${projectId}/tasks/${taskId}`)
-              }
+              columnTasks={tasksByStatusId.get(status.id) ?? []}
+              onOpenTask={openEditor}
+              moving={moving}
             />
           ))}
         </Stack>
-        <DragOverlay>
-          {draggedTask ? (
+        <DragOverlay dropAnimation={null}>
+          {activeTask ? (
             <Paper
               variant="outlined"
               sx={{
                 p: 1,
+                display: "flex",
+                gap: 0.5,
+                alignItems: "flex-start",
+                minWidth: 200,
                 bgcolor: "background.default",
                 boxShadow: 3,
-                minWidth: 216,
-                maxWidth: 216,
               }}
             >
-              <Typography variant="body2" fontWeight={500}>
-                {draggedTask.title}
+              <Box
+                component="span"
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  color: "action.active",
+                  pl: 0.25,
+                  pt: 0.25,
+                }}
+                aria-hidden
+              >
+                <DragIndicatorIcon fontSize="small" />
+              </Box>
+              <Typography
+                variant="body2"
+                fontWeight={500}
+                sx={{ flex: 1, pt: 0.25 }}
+              >
+                {activeTask.title}
               </Typography>
             </Paper>
           ) : null}
@@ -348,13 +339,21 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
       <TaskDialog
         open={dialogOpen}
         title={dialogTitle}
-        description={dialogDescription}
         error={dialogError}
         submitting={dialogSubmitting}
         onTitleChange={setDialogTitle}
-        onDescriptionChange={setDialogDescription}
         onClose={closeDialog}
-        onSubmit={() => void handleSubmit()}
+        onSubmit={(title, description) =>
+          void handleCreateSubmit(title, description)
+        }
+      />
+      <TaskEditorModal
+        open={editorOpen}
+        task={selectedTask}
+        saving={savingTask}
+        error={saveError}
+        onClose={closeEditor}
+        onSave={handleSaveTask}
       />
     </Stack>
   );
