@@ -176,7 +176,7 @@ try {
             $_SESSION['userId'] ?? null,
             $projectTasksId,
             $body['title'] ?? '',
-            $body['description'] ?? null,
+            $body['blockNoteData'] ?? null,
         ),
 
         $method === 'GET' && $taskPathProjectId !== null && $taskPathTaskId !== null => $tasks->get(

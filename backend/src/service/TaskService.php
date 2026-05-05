@@ -45,7 +45,7 @@ class TaskService
         return Result::ok(200, $maybe->value()->toPublicArray());
     }
 
-    public function create(?string $userId, string $projectId, mixed $title, mixed $description): Result {
+    public function create(?string $userId, string $projectId, mixed $title, mixed $blockNoteData): Result {
         $projectResult = $this->requireProject($userId, $projectId);
         if ($projectResult->failed()) {
             return $projectResult;
@@ -60,7 +60,7 @@ class TaskService
             return Result::fail(400, 'validation', ['message' => 'Title must be at most ' . self::TITLE_MAX . ' characters']);
         }
 
-        $desc = $this->normalizeDescription($description);
+        $desc = $this->normalizeDescription($blockNoteData);
         if ($desc !== null && strlen($desc) > self::DESCRIPTION_MAX) {
             return Result::fail(400, 'validation', ['message' => 'Description is too long']);
         }
@@ -75,7 +75,7 @@ class TaskService
             projectId: $projectId,
             workflowStatusId: $firstStatus->value()->id,
             title: $trimTitle,
-            description: $desc,
+            blockNoteData: $desc,
             createdBy: $user->id,
         ));
 
@@ -107,12 +107,12 @@ class TaskService
             $fields['title'] = $trimTitle;
         }
 
-        if (array_key_exists('description', $patch)) {
-            $desc = $this->normalizeDescription($patch['description']);
+        if (array_key_exists('blockNoteData', $patch)) {
+            $desc = $this->normalizeDescription($patch['blockNoteData']);
             if ($desc !== null && strlen($desc) > self::DESCRIPTION_MAX) {
                 return Result::fail(400, 'validation', ['message' => 'Description is too long']);
             }
-            $fields['description'] = $desc;
+            $fields['blockNoteData'] = $desc;
         }
 
         if (array_key_exists('workflow_status_id', $patch)) {

@@ -97,7 +97,7 @@ export function useProjectBoard(projectId: string) {
   }, [dialogSubmitting]);
 
   const handleCreateSubmit = useCallback(
-    async (title: string, description: string) => {
+    async (title: string, blockNoteData: string) => {
       setDialogError("");
       if (!title.trim()) {
         setDialogError("Title is required");
@@ -108,7 +108,7 @@ export function useProjectBoard(projectId: string) {
       try {
         const created = await createTask(projectId, {
           title,
-          description,
+          blockNoteData,
         });
         setTasks((prev) => [...prev, created]);
         setDialogOpen(false);
@@ -194,7 +194,7 @@ export function useProjectBoard(projectId: string) {
   }, [savingTask]);
 
   const handleSaveTask = useCallback(
-    async (title: string, description: string) => {
+    async (title: string, blockNoteData: string) => {
       if (!selectedTask) return;
       const trimmed = title.trim();
       if (!trimmed) {
@@ -207,7 +207,7 @@ export function useProjectBoard(projectId: string) {
       try {
         const updated = await updateTask(projectId, selectedTask.id, {
           title: trimmed,
-          description,
+          blockNoteData,
         });
         setTasks((ts) => ts.map((t) => (t.id === updated.id ? updated : t)));
         setSelectedTask(updated);

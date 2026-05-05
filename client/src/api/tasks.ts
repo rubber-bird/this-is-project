@@ -17,7 +17,7 @@ export function createTask(
   projectId: string,
   body: {
     title: string;
-    description?: string | null;
+    blockNoteData?: string | null;
   },
 ): Promise<Task> {
   return apiRequest<Task>(
@@ -26,7 +26,7 @@ export function createTask(
       method: 'POST',
       body: JSON.stringify({
         title: body.title,
-        description: body.description ?? null,
+        blockNoteData: body.blockNoteData ?? null,
       }),
     },
   );
@@ -37,7 +37,7 @@ export function updateTask(
   taskId: string,
   body: {
     title?: string;
-    description?: string | null;
+    blockNoteData?: string | null;
     workflow_status_id?: string;
   },
 ): Promise<Task> {
