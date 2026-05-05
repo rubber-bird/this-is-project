@@ -16,6 +16,8 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import EditIcon from "@mui/icons-material/Edit";
+import CloseIcon from "@mui/icons-material/Close";
 import {
   DndContext,
   DragOverlay,
@@ -164,11 +166,13 @@ function TaskEditorModal({
   onSave: (title: string, blockNoteData: string) => void;
 }) {
   const [title, setTitle] = useState("");
+  const [mode, setMode] = useState<"view" | "edit">("view");
   const editor = useCreateBlockNote({}, [task?.id ?? ""]);
 
   useEffect(() => {
     if (!task) return;
     setTitle(task.title);
+    setMode("view");
     const blocks = blocksFromStoredDescription(task.blockNoteData);
     editor.replaceBlocks(editor.document, blocks);
   }, [task, editor]);
@@ -177,6 +181,17 @@ function TaskEditorModal({
     onSave(title, JSON.stringify(editor.document));
   };
 
+  const handleCancelEdit = () => {
+    if (task) {
+      setTitle(task.title);
+      const blocks = blocksFromStoredDescription(task.blockNoteData);
+      editor.replaceBlocks(editor.document, blocks);
+    }
+    setMode("view");
+  };
+
+  const isEdit = mode === "edit";
+
   return (
     <Dialog
       open={open}
@@ -184,32 +199,59 @@ function TaskEditorModal({
       fullWidth
       maxWidth="md"
     >
-      <DialogTitle color="text.primary">Edit task</DialogTitle>
+      <DialogTitle
+        color="text.primary"
+        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+      >
+        <Box component="span">{isEdit ? "Edit task" : title}</Box>
+        {!isEdit && (
+          <IconButton
+            size="small"
+            onClick={() => setMode("edit")}
+            aria-label="Edit task"
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+        )}
+        <Box sx={{ flex: 1 }} />
+        <IconButton
+          size="small"
+          onClick={onClose}
+          disabled={saving}
+          aria-label="Close"
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
           {error ? <Alert severity="error">{error}</Alert> : null}
-          <TextField
-            label="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            fullWidth
-            disabled={saving}
-          />
+          {isEdit ? (
+            <TextField
+              label="Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              fullWidth
+              disabled={saving}
+            />
+          ) : null}
           <TaskDescriptionEditor
             editor={editor}
-            editable={!saving}
+            editable={isEdit && !saving}
             variant="page"
           />
         </Stack>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={saving}>
-          Cancel
-        </Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving}>
-          {saving ? "Saving…" : "Save changes"}
-        </Button>
-      </DialogActions>
+      {isEdit ? (
+        <DialogActions>
+          <Button onClick={handleCancelEdit} disabled={saving}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving…" : "Save changes"}
+          </Button>
+        </DialogActions>
+      ) : null}
     </Dialog>
   );
 }
