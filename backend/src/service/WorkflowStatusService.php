@@ -6,6 +6,7 @@ require_once __DIR__ . '/../data/UserRepository.php';
 require_once __DIR__ . '/../data/ProjectRepository.php';
 require_once __DIR__ . '/../data/WorkflowStatusRepository.php';
 require_once __DIR__ . '/../data/WorkflowStatus.php';
+require_once __DIR__ . '/../data/TaskRepository.php';
 
 class WorkflowStatusService
 {
@@ -16,6 +17,7 @@ class WorkflowStatusService
         private readonly UserRepository $users,
         private readonly ProjectRepository $projects,
         private readonly WorkflowStatusRepository $statuses,
+        private readonly TaskRepository $tasks,
     ) {}
 
     public function list(?string $userId, string $projectId): Result {
@@ -149,6 +151,68 @@ class WorkflowStatusService
         $updated = $this->statuses->findByIdAndProjectId($existing->id, $projectId)->value();
 
         return Result::ok(200, $updated->toPublicArray());
+    }
+
+    public function delete(?string $userId, string $projectId, string $statusId): Result {
+        $projectResult = $this->requireProject($userId, $projectId);
+        if ($projectResult->failed()) {
+            return $projectResult;
+        }
+
+        $all = $this->statuses->findByProjectId($projectId);
+        if (count($all) <= 1) {
+            return Result::fail(400, 'validation', ['message' => 'Cannot delete the last status']);
+        }
+
+        $target = null;
+        foreach ($all as $s) {
+            if ($s->id === $statusId) {
+                $target = $s;
+                break;
+            }
+        }
+        if ($target === null) {
+            return Result::fail(404, 'not_found', ['message' => 'Status not found']);
+        }
+
+        $remaining = array_values(array_filter($all, fn (WorkflowStatus $s) => $s->id !== $statusId));
+        $fallback = $remaining[0];
+
+        $changes = [];
+        foreach ($remaining as $i => $s) {
+            if ($s->position !== $i) {
+                $changes[$s->id] = $i;
+            }
+        }
+
+        $pdo = Database::get();
+        $pdo->beginTransaction();
+        try {
+            $this->tasks->reassignByStatus($projectId, $target->id, $fallback->id);
+            $this->statuses->delete($target->id, $projectId);
+            if (count($changes) > 0) {
+                $stmt = $pdo->prepare(
+                    'UPDATE workflow_statuses SET position = ? WHERE id = ? AND project_id = ?'
+                );
+                $i = 0;
+                foreach (array_keys($changes) as $id) {
+                    $stmt->execute([-1 - $i, $id, $projectId]);
+                    $i++;
+                }
+                foreach ($changes as $id => $pos) {
+                    $stmt->execute([$pos, $id, $projectId]);
+                }
+            }
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        $updated = $this->statuses->findByProjectId($projectId);
+        $out = array_map(fn (WorkflowStatus $s) => $s->toPublicArray(), $updated);
+
+        return Result::ok(200, $out);
     }
 
     public function reorder(?string $userId, string $projectId, mixed $orderInput): Result {

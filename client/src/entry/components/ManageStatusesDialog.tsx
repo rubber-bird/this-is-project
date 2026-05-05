@@ -30,6 +30,7 @@ import {
 } from "@dnd-kit/sortable";
 
 import {
+  deleteWorkflowStatus,
   listWorkflowStatuses,
   reorderWorkflowStatuses,
   updateWorkflowStatus,
@@ -123,6 +124,22 @@ export function ManageStatusesDialog({
     );
   };
 
+  const handleRemove = async (key: string) => {
+    setError("");
+    setSubmitting(true);
+    try {
+      const updated = await deleteWorkflowStatus(projectId, key);
+      const sorted = [...updated].sort((a, b) => a.position - b.position);
+      setRows(sorted.map(toRow));
+      setInitialOrder(sorted.map((s) => s.id));
+      await onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete status");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleClose = () => {
     if (submitting) return;
     onClose();
@@ -211,12 +228,12 @@ export function ManageStatusesDialog({
                     key={row.key}
                     status={row}
                     disabled={submitting}
-                    canRemove={false}
+                    canRemove={rows.length > 1}
                     onNameChange={(value) => updateRow(row.key, { name: value })}
                     onColorChange={(value) =>
                       updateRow(row.key, { color: value })
                     }
-                    onRemove={() => {}}
+                    onRemove={() => void handleRemove(row.key)}
                   />
                 ))}
               </Stack>

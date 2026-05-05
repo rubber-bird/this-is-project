@@ -51,6 +51,13 @@ class TaskRepository
         $stmt->execute([$workflowStatusId, $id, $projectId]);
     }
 
+    public function reassignByStatus(string $projectId, string $fromStatusId, string $toStatusId): void {
+        $stmt = Database::get()->prepare(
+            'UPDATE tasks SET workflow_status_id = ? WHERE project_id = ? AND workflow_status_id = ?'
+        );
+        $stmt->execute([$toStatusId, $projectId, $fromStatusId]);
+    }
+
     private function hydrate(array $row): Task {
         return new Task(
             id: $row['id'],

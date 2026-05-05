@@ -6,5 +6,6 @@ export {
   createWorkflowStatuses,
   updateWorkflowStatus,
   reorderWorkflowStatuses,
+  deleteWorkflowStatus,
 } from './workflowStatuses';
 export { listTasks, getTask, createTask, updateTask } from './tasks';
