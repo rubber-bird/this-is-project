@@ -32,9 +32,9 @@ function TaskEditor({
 
   useEffect(() => {
     setTitle(task.title);
-    const blocks = blocksFromStoredDescription(task.description);
+    const blocks = blocksFromStoredDescription(task.blockNoteData);
     editor.replaceBlocks(editor.document, blocks);
-  }, [task.id, task.title, task.description, editor]);
+  }, [task.id, task.title, task.blockNoteData, editor]);
 
   const handleSave = useCallback(async () => {
     const trimmed = title.trim();
@@ -45,10 +45,10 @@ function TaskEditor({
     setSaveError("");
     setSaving(true);
     try {
-      const description = JSON.stringify(editor.document);
+      const blockNoteData = JSON.stringify(editor.document);
       const updated = await updateTask(task.project_id, task.id, {
         title: trimmed,
-        description,
+        blockNoteData,
       });
       onSaved(updated);
     } catch (e) {

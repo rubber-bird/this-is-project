@@ -21,7 +21,7 @@ type TaskDialogProps = {
   submitting: boolean;
   onTitleChange: (value: string) => void;
   onClose: () => void;
-  onSubmit: (title: string, description: string) => void;
+  onSubmit: (title: string, blockNoteData: string) => void;
 };
 
 export function TaskDialog({

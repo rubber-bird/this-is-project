@@ -161,7 +161,7 @@ function TaskEditorModal({
   saving: boolean;
   error: string;
   onClose: () => void;
-  onSave: (title: string, description: string) => void;
+  onSave: (title: string, blockNoteData: string) => void;
 }) {
   const [title, setTitle] = useState("");
   const editor = useCreateBlockNote({}, [task?.id ?? ""]);
@@ -169,7 +169,7 @@ function TaskEditorModal({
   useEffect(() => {
     if (!task) return;
     setTitle(task.title);
-    const blocks = blocksFromStoredDescription(task.description);
+    const blocks = blocksFromStoredDescription(task.blockNoteData);
     editor.replaceBlocks(editor.document, blocks);
   }, [task, editor]);
 
@@ -343,8 +343,8 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
         submitting={dialogSubmitting}
         onTitleChange={setDialogTitle}
         onClose={closeDialog}
-        onSubmit={(title, description) =>
-          void handleCreateSubmit(title, description)
+        onSubmit={(title, blockNoteData) =>
+          void handleCreateSubmit(title, blockNoteData)
         }
       />
       <TaskEditorModal

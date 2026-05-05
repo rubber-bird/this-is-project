@@ -37,7 +37,7 @@ class TaskRepository
             $task->projectId,
             $task->workflowStatusId,
             $task->title,
-            $task->description,
+            $task->blockNoteData,
             $task->createdBy,
         ]);
 
@@ -45,12 +45,12 @@ class TaskRepository
     }
 
     /**
-     * @param array{title?: string, description?: string|null, workflow_status_id?: string} $fields
+     * @param array{title?: string, blockNoteData?: string|null, workflow_status_id?: string} $fields
      */
     public function update(string $id, string $projectId, array $fields): Task {
         $columnMap = [
             'title' => 'title',
-            'description' => 'description',
+            'blockNoteData' => 'description',
             'workflow_status_id' => 'workflow_status_id',
         ];
 
@@ -96,7 +96,7 @@ class TaskRepository
             projectId: $row['project_id'],
             workflowStatusId: $row['workflow_status_id'],
             title: $row['title'],
-            description: $row['description'],
+            blockNoteData: $row['description'],
             createdBy: $row['created_by'],
             createdAt: $row['created_at'] ?? null,
             updatedAt: $row['updated_at'] ?? null,
