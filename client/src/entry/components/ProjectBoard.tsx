@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -25,6 +26,7 @@ import {
   useDraggable,
 } from "@dnd-kit/core";
 import { useCreateBlockNote } from "@blocknote/react";
+import { Link as RouterLink } from "react-router-dom";
 
 import { type Task, type WorkflowStatus } from "../../api";
 import { TaskDialog } from "./TaskDialog";
@@ -153,17 +155,21 @@ function StatusColumn({
 function TaskEditorModal({
   open,
   task,
+  statuses,
   saving,
   error,
   onClose,
   onSave,
+  onStatusChange,
 }: {
   open: boolean;
   task: Task | null;
+  statuses: WorkflowStatus[];
   saving: boolean;
   error: string;
   onClose: () => void;
   onSave: (title: string, blockNoteData: string) => void;
+  onStatusChange: (taskId: string, statusId: string) => void;
 }) {
   const [title, setTitle] = useState("");
   const [mode, setMode] = useState<"view" | "edit">("view");
@@ -203,7 +209,25 @@ function TaskEditorModal({
         color="text.primary"
         sx={{ display: "flex", alignItems: "center", gap: 1 }}
       >
-        <Box component="span">{isEdit ? "Edit task" : title}</Box>
+        {isEdit ? (
+          <Box component="span">Edit task</Box>
+        ) : task ? (
+          <Box
+            component={RouterLink}
+            to={`/projects/${task.project_id}/tasks/${task.id}`}
+            sx={{
+              color: "inherit",
+              textDecoration: "underline",
+              textDecorationStyle: "dotted",
+              textUnderlineOffset: 4,
+              "&:hover": { textDecorationStyle: "solid" },
+            }}
+          >
+            {title}
+          </Box>
+        ) : (
+          <Box component="span">{title}</Box>
+        )}
         {!isEdit && (
           <IconButton
             size="small"
@@ -226,20 +250,45 @@ function TaskEditorModal({
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
           {error ? <Alert severity="error">{error}</Alert> : null}
-          {isEdit ? (
-            <TextField
-              label="Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              fullWidth
-              disabled={saving}
-            />
-          ) : null}
-          <TaskDescriptionEditor
-            editor={editor}
-            editable={isEdit && !saving}
-            variant="page"
-          />
+          <Stack direction="row" spacing={2} alignItems="flex-start">
+            <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
+              {isEdit ? (
+                <TextField
+                  label="Title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  fullWidth
+                  disabled={saving}
+                />
+              ) : null}
+              <TaskDescriptionEditor
+                editor={editor}
+                editable={isEdit && !saving}
+                variant="page"
+              />
+            </Stack>
+            <Stack spacing={1} sx={{ width: 200, flexShrink: 0 }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Status
+              </Typography>
+              <TextField
+                select
+                size="small"
+                value={task?.workflow_status_id ?? ""}
+                onChange={(e) =>
+                  task && onStatusChange(task.id, e.target.value)
+                }
+                disabled={saving || !task || statuses.length === 0}
+                fullWidth
+              >
+                {statuses.map((s) => (
+                  <MenuItem key={s.id} value={s.id}>
+                    {s.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Stack>
+          </Stack>
         </Stack>
       </DialogContent>
       {isEdit ? (
@@ -283,6 +332,7 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
     openEditor,
     closeEditor,
     handleSaveTask,
+    handleStatusChange,
   } = useProjectBoard(projectId);
 
   if (loading) {
@@ -392,10 +442,14 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
       <TaskEditorModal
         open={editorOpen}
         task={selectedTask}
+        statuses={statuses}
         saving={savingTask}
         error={saveError}
         onClose={closeEditor}
         onSave={handleSaveTask}
+        onStatusChange={(taskId, statusId) =>
+          void handleStatusChange(taskId, statusId)
+        }
       />
     </Stack>
   );
