@@ -46,3 +46,15 @@ export function reorderWorkflowStatuses(
     },
   );
 }
+
+export function deleteWorkflowStatus(
+  projectId: string,
+  statusId: string,
+): Promise<WorkflowStatus[]> {
+  return apiRequest<WorkflowStatus[]>(
+    `/projects/${encodeURIComponent(projectId)}/workflow-statuses/${encodeURIComponent(statusId)}`,
+    {
+      method: 'DELETE',
+    },
+  );
+}

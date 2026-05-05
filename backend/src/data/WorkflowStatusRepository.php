@@ -74,6 +74,13 @@ class WorkflowStatusRepository
         $stmt->execute([$name, $color, $id, $projectId]);
     }
 
+    public function delete(string $id, string $projectId): void {
+        $stmt = Database::get()->prepare(
+            'DELETE FROM workflow_statuses WHERE id = ? AND project_id = ?'
+        );
+        $stmt->execute([$id, $projectId]);
+    }
+
     /** @param array<string, int> $changes map of id => new position */
     public function updatePositions(string $projectId, array $changes): void {
         if (empty($changes)) {

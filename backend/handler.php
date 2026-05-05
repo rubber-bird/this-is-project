@@ -36,8 +36,9 @@ $account = new AccountService($users);
 $projectRepo = new ProjectRepository();
 $projects = new ProjectService($users, $projectRepo);
 $workflowStatusRepo = new WorkflowStatusRepository();
-$workflowStatuses = new WorkflowStatusService($users, $projectRepo, $workflowStatusRepo);
-$tasks = new TaskService($users, $projectRepo, $workflowStatusRepo, new TaskRepository());
+$taskRepo = new TaskRepository();
+$workflowStatuses = new WorkflowStatusService($users, $projectRepo, $workflowStatusRepo, $taskRepo);
+$tasks = new TaskService($users, $projectRepo, $workflowStatusRepo, $taskRepo);
 
 // ── Route ──
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -151,6 +152,12 @@ try {
             $workflowStatusPathProjectId,
             $workflowStatusPathStatusId,
             $body,
+        ),
+
+        $method === 'DELETE' && $workflowStatusPathProjectId !== null && $workflowStatusPathStatusId !== null => $workflowStatuses->delete(
+            $_SESSION['userId'] ?? null,
+            $workflowStatusPathProjectId,
+            $workflowStatusPathStatusId,
         ),
 
         $method === 'GET' && $projectTasksId !== null => $tasks->list(
