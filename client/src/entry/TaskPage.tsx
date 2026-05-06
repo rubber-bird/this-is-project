@@ -4,27 +4,39 @@ import {
   Box,
   Button,
   CircularProgress,
+  IconButton,
+  MenuItem,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import EditIcon from "@mui/icons-material/Edit";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { useCreateBlockNote } from "@blocknote/react";
 
-import { getTask, updateTask, type Task } from "../api";
+import {
+  getTask,
+  listWorkflowStatuses,
+  updateTask,
+  type Task,
+  type WorkflowStatus,
+} from "../api";
 import { useSetTaskBreadcrumb } from "./BreadcrumbContext";
 import { TaskDescriptionEditor } from "./components/TaskDescriptionEditor";
 import { blocksFromStoredDescription } from "./utils/taskDescriptionBlocks";
 
 function TaskEditor({
   task,
+  statuses,
   onSaved,
 }: {
   task: Task;
+  statuses: WorkflowStatus[];
   onSaved: (t: Task) => void;
 }) {
   const [title, setTitle] = useState(task.title);
+  const [mode, setMode] = useState<"view" | "edit">("view");
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -32,6 +44,7 @@ function TaskEditor({
 
   useEffect(() => {
     setTitle(task.title);
+    setMode("view");
     const blocks = blocksFromStoredDescription(task.blockNoteData);
     editor.replaceBlocks(editor.document, blocks);
   }, [task.id, task.title, task.blockNoteData, editor]);
@@ -58,29 +71,104 @@ function TaskEditor({
     }
   }, [editor, task.id, task.project_id, title, onSaved]);
 
+  const handleCancelEdit = useCallback(() => {
+    setTitle(task.title);
+    const blocks = blocksFromStoredDescription(task.blockNoteData);
+    editor.replaceBlocks(editor.document, blocks);
+    setSaveError("");
+    setMode("view");
+  }, [task.title, task.blockNoteData, editor]);
+
+  const handleStatusChange = useCallback(
+    async (statusId: string) => {
+      if (statusId === task.workflow_status_id) return;
+      setSaveError("");
+      setSaving(true);
+      try {
+        const updated = await updateTask(task.project_id, task.id, {
+          workflow_status_id: statusId,
+        });
+        onSaved(updated);
+      } catch (e) {
+        setSaveError(
+          e instanceof Error ? e.message : "Failed to change status",
+        );
+      } finally {
+        setSaving(false);
+      }
+    },
+    [task.id, task.project_id, task.workflow_status_id, onSaved],
+  );
+
+  const isEdit = mode === "edit";
+
   return (
-    <Stack spacing={2} alignItems="stretch" maxWidth={900}>
-      <TextField
-        label="Title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        fullWidth
-        disabled={saving}
-      />
+    <Stack spacing={2} alignItems="stretch" sx={{ width: "100%" }}>
+      {isEdit ? (
+        <TextField
+          label="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          fullWidth
+          disabled={saving}
+        />
+      ) : (
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="h5" sx={{ fontWeight: 600 }}>
+            {task.title}
+          </Typography>
+          <IconButton
+            size="small"
+            onClick={() => setMode("edit")}
+            aria-label="Edit task"
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+      )}
       {saveError ? <Alert severity="error">{saveError}</Alert> : null}
-      <TaskDescriptionEditor
-        editor={editor}
-        editable={!saving}
-        variant="page"
-      />
-      <Button
-        variant="contained"
-        onClick={() => void handleSave()}
-        disabled={saving}
-        sx={{ alignSelf: "flex-start" }}
-      >
-        {saving ? "Saving…" : "Save changes"}
-      </Button>
+      <Stack direction="row" spacing={2} alignItems="flex-start">
+        <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
+          <TaskDescriptionEditor
+            editor={editor}
+            editable={isEdit && !saving}
+            variant="page"
+          />
+        </Stack>
+        <Stack spacing={1} sx={{ width: 220, flexShrink: 0 }}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Status
+          </Typography>
+          <TextField
+            select
+            size="small"
+            value={task.workflow_status_id}
+            onChange={(e) => void handleStatusChange(e.target.value)}
+            disabled={saving || statuses.length === 0}
+            fullWidth
+          >
+            {statuses.map((s) => (
+              <MenuItem key={s.id} value={s.id}>
+                {s.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Stack>
+      </Stack>
+      {isEdit ? (
+        <Stack direction="row" spacing={1}>
+          <Button onClick={handleCancelEdit} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void handleSave()}
+            disabled={saving}
+          >
+            {saving ? "Saving…" : "Save changes"}
+          </Button>
+        </Stack>
+      ) : null}
     </Stack>
   );
 }
@@ -89,6 +177,7 @@ export function TaskPage() {
   const { projectId = "", taskId = "" } = useParams();
 
   const [task, setTask] = useState<Task | null>(null);
+  const [statuses, setStatuses] = useState<WorkflowStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -98,8 +187,14 @@ export function TaskPage() {
     setError("");
     void (async () => {
       try {
-        const t = await getTask(projectId, taskId);
-        if (!cancelled) setTask(t);
+        const [t, statusList] = await Promise.all([
+          getTask(projectId, taskId),
+          listWorkflowStatuses(projectId),
+        ]);
+        if (!cancelled) {
+          setTask(t);
+          setStatuses(statusList);
+        }
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Failed to load task");
@@ -136,7 +231,7 @@ export function TaskPage() {
   }
 
   return (
-    <Stack spacing={2} alignItems="flex-start" maxWidth={920}>
+    <Stack spacing={2} alignItems="flex-start" sx={{ width: "100%" }}>
       <Button
         component={RouterLink}
         to={`/projects/${projectId}`}
@@ -145,7 +240,12 @@ export function TaskPage() {
       >
         Back to project
       </Button>
-      <TaskEditor key={task.id} task={task} onSaved={setTask} />
+      <TaskEditor
+        key={task.id}
+        task={task}
+        statuses={statuses}
+        onSaved={setTask}
+      />
     </Stack>
   );
 }

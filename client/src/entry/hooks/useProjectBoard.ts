@@ -193,6 +193,35 @@ export function useProjectBoard(projectId: string) {
     setSaveError("");
   }, [savingTask]);
 
+  const handleStatusChange = useCallback(
+    async (taskId: string, statusId: string) => {
+      const previousTasks = tasks;
+      const previousSelected = selectedTask;
+      setTasks((ts) =>
+        ts.map((t) =>
+          t.id === taskId ? { ...t, workflow_status_id: statusId } : t,
+        ),
+      );
+      if (selectedTask?.id === taskId) {
+        setSelectedTask({ ...selectedTask, workflow_status_id: statusId });
+      }
+      try {
+        const updated = await updateTask(projectId, taskId, {
+          workflow_status_id: statusId,
+        });
+        setTasks((ts) => ts.map((t) => (t.id === taskId ? updated : t)));
+        if (previousSelected?.id === taskId) setSelectedTask(updated);
+      } catch (e) {
+        setTasks(previousTasks);
+        setSelectedTask(previousSelected);
+        setSaveError(
+          e instanceof Error ? e.message : "Failed to change status",
+        );
+      }
+    },
+    [projectId, tasks, selectedTask],
+  );
+
   const handleSaveTask = useCallback(
     async (title: string, blockNoteData: string) => {
       if (!selectedTask) return;
@@ -248,5 +277,6 @@ export function useProjectBoard(projectId: string) {
     openEditor,
     closeEditor,
     handleSaveTask,
+    handleStatusChange,
   };
 }
