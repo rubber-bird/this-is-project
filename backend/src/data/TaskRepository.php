@@ -7,7 +7,11 @@ require_once __DIR__ . '/Task.php';
 
 class TaskRepository
 {
-    private const SELECT_BASE = 'SELECT id, project_id, workflow_status_id, title, description, created_by, assigned_to, created_at, updated_at FROM tasks';
+    private const SELECT_BASE = <<<'SQL'
+        SELECT id, project_id, workflow_status_id, title, description, created_by,
+               assigned_to, deadline, priority, created_at, updated_at
+        FROM tasks
+        SQL;
 
     /** @return Task[] */
     public function findByProjectId(string $projectId): array {
@@ -29,9 +33,11 @@ class TaskRepository
     public function save(Task $task): Task {
         $id = $task->id ?? Uuid::generate();
 
-        $stmt = Database::get()->prepare(
-            'INSERT INTO tasks (id, project_id, workflow_status_id, title, description, created_by, assigned_to) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        );
+        $sql = 'INSERT INTO tasks (
+            id, project_id, workflow_status_id, title, description, created_by,
+            assigned_to, deadline, priority
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+        $stmt = Database::get()->prepare($sql);
         $stmt->execute([
             $id,
             $task->projectId,
@@ -40,13 +46,15 @@ class TaskRepository
             $task->blockNoteData,
             $task->createdBy,
             $task->assignedTo,
+            $task->deadline,
+            $task->priority,
         ]);
 
         return $this->findByIdAndProjectId($id, $task->projectId)->value();
     }
 
     /**
-     * @param array{title?: string, blockNoteData?: string|null, workflow_status_id?: string, assigned_to?: string|null} $fields
+     * @param array{title?: string, blockNoteData?: string|null, workflow_status_id?: string, assigned_to?: string|null, deadline?: string|null, priority?: string} $fields
      */
     public function update(string $id, string $projectId, array $fields): Task {
         $columnMap = [
@@ -54,6 +62,8 @@ class TaskRepository
             'blockNoteData' => 'description',
             'workflow_status_id' => 'workflow_status_id',
             'assigned_to' => 'assigned_to',
+            'deadline' => 'deadline',
+            'priority' => 'priority',
         ];
 
         $sets = [];
@@ -101,6 +111,8 @@ class TaskRepository
             blockNoteData: $row['description'],
             createdBy: $row['created_by'],
             assignedTo: $row['assigned_to'] ?? null,
+            deadline: $row['deadline'] ?? null,
+            priority: isset($row['priority']) ? (string) $row['priority'] : 'medium',
             createdAt: $row['created_at'] ?? null,
             updatedAt: $row['updated_at'] ?? null,
         );

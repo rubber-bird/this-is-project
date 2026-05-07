@@ -13,9 +13,16 @@ import {
   listWorkflowStatuses,
   updateTask,
   type Task,
+  type TaskPriority,
   type User,
   type WorkflowStatus,
 } from "../../api";
+import { deadlineInputValue } from "../utils/deadlineInputValue";
+import {
+  mergeTaskResponse,
+  normalizeTask,
+  taskPriorityOrDefault,
+} from "../utils/taskPriority";
 
 function parseDndId(id: string): { kind: "task" | "col"; id: string } | null {
   if (id.startsWith("task:")) return { kind: "task", id: id.slice(5) };
@@ -74,7 +81,7 @@ export function useProjectBoard(projectId: string) {
         ]);
         if (!cancelled) {
           setStatuses(statusList);
-          setTasks(taskList);
+          setTasks(taskList.map(normalizeTask));
           setUsers(userList);
         }
       } catch (e) {
@@ -115,7 +122,7 @@ export function useProjectBoard(projectId: string) {
           title,
           blockNoteData,
         });
-        setTasks((prev) => [...prev, created]);
+        setTasks((prev) => [...prev, normalizeTask(created)]);
         setDialogOpen(false);
       } catch (e) {
         setDialogError(e instanceof Error ? e.message : "Request failed");
@@ -174,7 +181,11 @@ export function useProjectBoard(projectId: string) {
         const updated = await updateTask(projectId, taskId, {
           workflow_status_id: targetStatusId,
         });
-        setTasks((ts) => ts.map((t) => (t.id === taskId ? updated : t)));
+        const merged = mergeTaskResponse(updated, {
+          deadline: fromTask.deadline ?? null,
+          priority: taskPriorityOrDefault(fromTask.priority),
+        });
+        setTasks((ts) => ts.map((t) => (t.id === taskId ? merged : t)));
       } catch (e) {
         setTasks(previous);
         setMoveError(e instanceof Error ? e.message : "Failed to move task");
@@ -198,10 +209,88 @@ export function useProjectBoard(projectId: string) {
     setSaveError("");
   }, [savingTask]);
 
+  const handleDeadlineChange = useCallback(
+    async (taskId: string, nextDeadline: string | null) => {
+      const normalized = nextDeadline?.trim() || null;
+      const prevRow = tasks.find((t) => t.id === taskId);
+      if (!prevRow) return;
+      const curNorm = deadlineInputValue(prevRow.deadline) || null;
+      if (normalized === curNorm) return;
+
+      const previousTasks = tasks;
+      const previousSelected = selectedTask;
+
+      setTasks((ts) =>
+        ts.map((t) => (t.id === taskId ? { ...t, deadline: normalized } : t)),
+      );
+      setSelectedTask((prev) =>
+        prev?.id === taskId ? { ...prev, deadline: normalized } : prev,
+      );
+
+      try {
+        const updated = await updateTask(projectId, taskId, {
+          deadline: normalized,
+        });
+        const merged = mergeTaskResponse(updated, {
+          deadline: normalized,
+          priority: taskPriorityOrDefault(prevRow.priority),
+        });
+        setTasks((ts) => ts.map((t) => (t.id === taskId ? merged : t)));
+        setSelectedTask((prev) => (prev?.id === taskId ? merged : prev));
+      } catch (e) {
+        setTasks(previousTasks);
+        setSelectedTask(previousSelected);
+        setSaveError(
+          e instanceof Error ? e.message : "Failed to update deadline",
+        );
+      }
+    },
+    [projectId, tasks, selectedTask],
+  );
+
+  const handlePriorityChange = useCallback(
+    async (taskId: string, nextPriority: TaskPriority) => {
+      const prevRow = tasks.find((t) => t.id === taskId);
+      if (!prevRow) return;
+      const cur = taskPriorityOrDefault(prevRow.priority);
+      if (nextPriority === cur) return;
+
+      const previousTasks = tasks;
+      const previousSelected = selectedTask;
+
+      setTasks((ts) =>
+        ts.map((t) => (t.id === taskId ? { ...t, priority: nextPriority } : t)),
+      );
+      setSelectedTask((prev) =>
+        prev?.id === taskId ? { ...prev, priority: nextPriority } : prev,
+      );
+
+      try {
+        const updated = await updateTask(projectId, taskId, {
+          priority: nextPriority,
+        });
+        const merged = mergeTaskResponse(updated, {
+          deadline: prevRow.deadline ?? null,
+          priority: nextPriority,
+        });
+        setTasks((ts) => ts.map((t) => (t.id === taskId ? merged : t)));
+        setSelectedTask((prev) => (prev?.id === taskId ? merged : prev));
+      } catch (e) {
+        setTasks(previousTasks);
+        setSelectedTask(previousSelected);
+        setSaveError(
+          e instanceof Error ? e.message : "Failed to update priority",
+        );
+      }
+    },
+    [projectId, tasks, selectedTask],
+  );
+
   const handleStatusChange = useCallback(
     async (taskId: string, statusId: string) => {
       const previousTasks = tasks;
       const previousSelected = selectedTask;
+      const prevRow = tasks.find((t) => t.id === taskId);
       setTasks((ts) =>
         ts.map((t) =>
           t.id === taskId ? { ...t, workflow_status_id: statusId } : t,
@@ -214,8 +303,12 @@ export function useProjectBoard(projectId: string) {
         const updated = await updateTask(projectId, taskId, {
           workflow_status_id: statusId,
         });
-        setTasks((ts) => ts.map((t) => (t.id === taskId ? updated : t)));
-        if (previousSelected?.id === taskId) setSelectedTask(updated);
+        const merged = mergeTaskResponse(updated, {
+          deadline: prevRow?.deadline ?? null,
+          priority: taskPriorityOrDefault(prevRow?.priority),
+        });
+        setTasks((ts) => ts.map((t) => (t.id === taskId ? merged : t)));
+        if (previousSelected?.id === taskId) setSelectedTask(merged);
       } catch (e) {
         setTasks(previousTasks);
         setSelectedTask(previousSelected);
@@ -231,6 +324,7 @@ export function useProjectBoard(projectId: string) {
     async (taskId: string, assigneeId: string | null) => {
       const previousTasks = tasks;
       const previousSelected = selectedTask;
+      const prevRow = tasks.find((t) => t.id === taskId);
       setTasks((ts) =>
         ts.map((t) =>
           t.id === taskId ? { ...t, assigned_to: assigneeId } : t,
@@ -243,8 +337,12 @@ export function useProjectBoard(projectId: string) {
         const updated = await updateTask(projectId, taskId, {
           assigned_to: assigneeId,
         });
-        setTasks((ts) => ts.map((t) => (t.id === taskId ? updated : t)));
-        if (previousSelected?.id === taskId) setSelectedTask(updated);
+        const merged = mergeTaskResponse(updated, {
+          deadline: prevRow?.deadline ?? null,
+          priority: taskPriorityOrDefault(prevRow?.priority),
+        });
+        setTasks((ts) => ts.map((t) => (t.id === taskId ? merged : t)));
+        if (previousSelected?.id === taskId) setSelectedTask(merged);
       } catch (e) {
         setTasks(previousTasks);
         setSelectedTask(previousSelected);
@@ -257,7 +355,7 @@ export function useProjectBoard(projectId: string) {
   );
 
   const handleSaveTask = useCallback(
-    async (title: string, blockNoteData: string) => {
+    async (title: string, blockNoteData: string, deadline: string | null) => {
       if (!selectedTask) return;
       const trimmed = title.trim();
       if (!trimmed) {
@@ -271,9 +369,14 @@ export function useProjectBoard(projectId: string) {
         const updated = await updateTask(projectId, selectedTask.id, {
           title: trimmed,
           blockNoteData,
+          deadline,
         });
-        setTasks((ts) => ts.map((t) => (t.id === updated.id ? updated : t)));
-        setSelectedTask(updated);
+        const merged = mergeTaskResponse(updated, {
+          deadline,
+          priority: taskPriorityOrDefault(selectedTask.priority),
+        });
+        setTasks((ts) => ts.map((t) => (t.id === merged.id ? merged : t)));
+        setSelectedTask(merged);
         setEditorOpen(false);
       } catch (e) {
         setSaveError(e instanceof Error ? e.message : "Failed to save task");
@@ -314,5 +417,7 @@ export function useProjectBoard(projectId: string) {
     handleSaveTask,
     handleStatusChange,
     handleAssigneeChange,
+    handleDeadlineChange,
+    handlePriorityChange,
   };
 }

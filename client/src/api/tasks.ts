@@ -1,4 +1,4 @@
-import type { Task } from './types';
+import type { Task, TaskPriority } from './types';
 import { apiRequest } from './http';
 
 export function listTasks(projectId: string): Promise<Task[]> {
@@ -18,6 +18,8 @@ export function createTask(
   body: {
     title: string;
     blockNoteData?: string | null;
+    deadline?: string | null;
+    priority?: TaskPriority;
   },
 ): Promise<Task> {
   return apiRequest<Task>(
@@ -27,6 +29,8 @@ export function createTask(
       body: JSON.stringify({
         title: body.title,
         blockNoteData: body.blockNoteData ?? null,
+        deadline: body.deadline ?? null,
+        priority: body.priority ?? undefined,
       }),
     },
   );
@@ -40,6 +44,8 @@ export function updateTask(
     blockNoteData?: string | null;
     workflow_status_id?: string;
     assigned_to?: string | null;
+    deadline?: string | null;
+    priority?: TaskPriority;
   },
 ): Promise<Task> {
   return apiRequest<Task>(

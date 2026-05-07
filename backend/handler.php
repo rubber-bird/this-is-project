@@ -137,13 +137,6 @@ try {
             $body,
         ),
 
-        $method === 'PATCH' && $taskPathProjectId !== null && $taskPathTaskId !== null => $tasks->update(
-            $_SESSION['userId'] ?? null,
-            $taskPathProjectId,
-            $taskPathTaskId,
-            $body,
-        ),
-
         $method === 'DELETE' && $projectPathId !== null => $projects->delete(
             $_SESSION['userId'] ?? null,
             $projectPathId,
@@ -189,6 +182,8 @@ try {
             $projectTasksId,
             $body['title'] ?? '',
             $body['blockNoteData'] ?? null,
+            $body['deadline'] ?? null,
+            $body['priority'] ?? null,
         ),
 
         $method === 'GET' && $taskPathProjectId !== null && $taskPathTaskId !== null => $tasks->get(
