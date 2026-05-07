@@ -9,7 +9,6 @@ $baseDir       = dirname(__DIR__);
 $migrationsDir = $baseDir . '/migrations';
 
 require_once $baseDir . '/src/util/Database.php';
-require_once $baseDir . '/src/util/MigrationRunner.php';
 
 $env = json_decode(file_get_contents($baseDir . '/env.json'), true);
 Database::connect($env['database']);
