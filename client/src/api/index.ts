@@ -1,4 +1,4 @@
-export type { User, SignUpRequest, SignInRequest, Project, WorkflowStatus, Task } from './types';
+export type { User, SignUpRequest, SignInRequest, Project, WorkflowStatus, Task, TaskPriority } from './types';
 export { signUp, signIn, whoami, signOut } from './auth';
 export { listProjects, getProject, createProject, updateProject, deleteProject } from './projects';
 export {

@@ -9,12 +9,12 @@ $baseDir       = dirname(__DIR__);
 $migrationsDir = $baseDir . '/migrations';
 
 require_once $baseDir . '/src/util/Database.php';
+require_once $baseDir . '/src/util/MigrationRunner.php';
 
 $env = json_decode(file_get_contents($baseDir . '/env.json'), true);
 Database::connect($env['database']);
 $pdo = Database::get();
 
-// ── Ensure tracking table ──
 $pdo->exec("CREATE TABLE IF NOT EXISTS _migrations (
     id          INT AUTO_INCREMENT PRIMARY KEY,
     name        VARCHAR(255) NOT NULL UNIQUE,

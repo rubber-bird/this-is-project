@@ -39,12 +39,16 @@ export interface WorkflowStatus {
   updated_at: string | null;
 }
 
+export type TaskPriority = "low" | "medium" | "high";
+
 export interface Task {
   id: string;
   project_id: string;
   workflow_status_id: string;
   title: string;
   blockNoteData: string | null;
+  deadline: string | null;
+  priority: TaskPriority;
   created_by: string | null;
   assigned_to: string | null;
   created_at: string | null;

@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   Alert,
   Box,
   Button,
   CircularProgress,
   IconButton,
-  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -21,12 +20,20 @@ import {
   listWorkflowStatuses,
   updateTask,
   type Task,
+  type TaskPriority,
   type User,
   type WorkflowStatus,
 } from "../api";
 import { useSetTaskBreadcrumb } from "./BreadcrumbContext";
 import { TaskDescriptionEditor } from "./components/TaskDescriptionEditor";
+import { TaskMetaSidebar } from "./components/TaskMetaSidebar";
 import { blocksFromStoredDescription } from "./utils/taskDescriptionBlocks";
+import { deadlineInputValue } from "./utils/deadlineInputValue";
+import {
+  mergeTaskResponse,
+  normalizeTask,
+  taskPriorityOrDefault,
+} from "./utils/taskPriority";
 
 function TaskEditor({
   task,
@@ -40,18 +47,25 @@ function TaskEditor({
   onSaved: (t: Task) => void;
 }) {
   const [title, setTitle] = useState(task.title);
+  const [deadlineDraft, setDeadlineDraft] = useState("");
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
   const editor = useCreateBlockNote({}, [task.id]);
+  const editorRef = useRef(editor);
+  editorRef.current = editor;
 
   useEffect(() => {
     setTitle(task.title);
     setMode("view");
     const blocks = blocksFromStoredDescription(task.blockNoteData);
-    editor.replaceBlocks(editor.document, blocks);
-  }, [task.id, task.title, task.blockNoteData, editor]);
+    editorRef.current.replaceBlocks(editorRef.current.document, blocks);
+  }, [task.id, task.title, task.blockNoteData]);
+
+  useEffect(() => {
+    setDeadlineDraft(deadlineInputValue(task.deadline));
+  }, [task.id]);
 
   const handleSave = useCallback(async () => {
     const trimmed = title.trim();
@@ -66,22 +80,30 @@ function TaskEditor({
       const updated = await updateTask(task.project_id, task.id, {
         title: trimmed,
         blockNoteData,
+        deadline: deadlineInputValue(deadlineDraft) || null,
       });
-      onSaved(updated);
+      onSaved(
+        mergeTaskResponse(updated, {
+          deadline: deadlineInputValue(deadlineDraft) || null,
+          priority: taskPriorityOrDefault(task.priority),
+        }),
+      );
+      setMode("view");
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
     }
-  }, [editor, task.id, task.project_id, title, onSaved]);
+  }, [editor, task.id, task.project_id, task.priority, deadlineDraft, title, onSaved]);
 
   const handleCancelEdit = useCallback(() => {
     setTitle(task.title);
+    setDeadlineDraft(deadlineInputValue(task.deadline));
     const blocks = blocksFromStoredDescription(task.blockNoteData);
     editor.replaceBlocks(editor.document, blocks);
     setSaveError("");
     setMode("view");
-  }, [task.title, task.blockNoteData, editor]);
+  }, [task.title, task.blockNoteData, task.deadline, editor]);
 
   const handleStatusChange = useCallback(
     async (statusId: string) => {
@@ -92,7 +114,12 @@ function TaskEditor({
         const updated = await updateTask(task.project_id, task.id, {
           workflow_status_id: statusId,
         });
-        onSaved(updated);
+        onSaved(
+          mergeTaskResponse(updated, {
+            deadline: task.deadline ?? null,
+            priority: taskPriorityOrDefault(task.priority),
+          }),
+        );
       } catch (e) {
         setSaveError(
           e instanceof Error ? e.message : "Failed to change status",
@@ -101,56 +128,124 @@ function TaskEditor({
         setSaving(false);
       }
     },
-    [task.id, task.project_id, task.workflow_status_id, onSaved],
+    [
+      task.id,
+      task.project_id,
+      task.workflow_status_id,
+      task.deadline,
+      task.priority,
+      onSaved,
+    ],
+  );
+
+  const handlePriorityChange = useCallback(
+    async (nextPriority: TaskPriority) => {
+      if (nextPriority === taskPriorityOrDefault(task.priority)) return;
+      setSaveError("");
+      const previous = task;
+      onSaved({ ...task, priority: nextPriority });
+      try {
+        const updated = await updateTask(task.project_id, task.id, {
+          priority: nextPriority,
+        });
+        onSaved(
+          mergeTaskResponse(updated, {
+            deadline: task.deadline ?? null,
+            priority: nextPriority,
+          }),
+        );
+      } catch (e) {
+        onSaved(previous);
+        setSaveError(
+          e instanceof Error ? e.message : "Failed to update priority",
+        );
+      }
+    },
+    [task, onSaved],
+  );
+
+  const handleDeadlineChange = useCallback(
+    async (nextDeadline: string | null) => {
+      const normalized = nextDeadline?.trim() || null;
+      const current = deadlineInputValue(task.deadline) || null;
+      if (normalized === current) return;
+      setSaveError("");
+      const previous = task;
+      onSaved({ ...task, deadline: normalized });
+      try {
+        const updated = await updateTask(task.project_id, task.id, {
+          deadline: normalized,
+        });
+        onSaved(
+          mergeTaskResponse(updated, {
+            deadline: normalized,
+            priority: taskPriorityOrDefault(previous.priority),
+          }),
+        );
+      } catch (e) {
+        onSaved(previous);
+        setSaveError(
+          e instanceof Error ? e.message : "Failed to update deadline",
+        );
+      }
+    },
+    [task, onSaved],
   );
 
   const handleAssigneeChange = useCallback(
     async (assigneeId: string | null) => {
       if (assigneeId === task.assigned_to) return;
       setSaveError("");
-      setSaving(true);
+      const previous = task;
+      onSaved({ ...task, assigned_to: assigneeId });
       try {
         const updated = await updateTask(task.project_id, task.id, {
           assigned_to: assigneeId,
         });
-        onSaved(updated);
+        onSaved(
+          mergeTaskResponse(updated, {
+            deadline: previous.deadline ?? null,
+            priority: taskPriorityOrDefault(previous.priority),
+          }),
+        );
       } catch (e) {
+        onSaved(previous);
         setSaveError(
           e instanceof Error ? e.message : "Failed to change assignee",
         );
-      } finally {
-        setSaving(false);
       }
     },
-    [task.id, task.project_id, task.assigned_to, onSaved],
+    [task, onSaved],
   );
 
   const isEdit = mode === "edit";
 
   return (
     <Stack spacing={2} alignItems="stretch" sx={{ width: "100%" }}>
-      {isEdit ? (
-        <TextField
-          label="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          fullWidth
-          disabled={saving}
-        />
-      ) : (
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>
-            {task.title}
-          </Typography>
-          <IconButton
-            size="small"
-            onClick={() => setMode("edit")}
-            aria-label="Edit task"
-          >
-            <EditIcon fontSize="small" />
-          </IconButton>
-        </Stack>
-      )}
+      <Stack direction="row" alignItems="center" spacing={1}>
+        {isEdit ? (
+          <TextField
+            label="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            fullWidth
+            disabled={saving}
+          />
+        ) : (
+          <>
+            <Typography variant="h5" component="h1" color="text.primary">
+              {task.title}
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={() => setMode("edit")}
+              aria-label="Edit title and description"
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </>
+        )}
+      </Stack>
       {saveError ? <Alert severity="error">{saveError}</Alert> : null}
       <Stack direction="row" spacing={2} alignItems="flex-start">
         <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
@@ -160,51 +255,24 @@ function TaskEditor({
             variant="page"
           />
         </Stack>
-        <Stack spacing={1} sx={{ width: 220, flexShrink: 0 }}>
-          <Typography variant="subtitle2" color="text.secondary">
-            Status
-          </Typography>
-          <TextField
-            select
-            size="small"
-            value={task.workflow_status_id}
-            onChange={(e) => void handleStatusChange(e.target.value)}
-            disabled={saving || statuses.length === 0}
-            fullWidth
-          >
-            {statuses.map((s) => (
-              <MenuItem key={s.id} value={s.id}>
-                {s.name}
-              </MenuItem>
-            ))}
-          </TextField>
-          <Typography
-            variant="subtitle2"
-            color="text.secondary"
-            sx={{ pt: 1 }}
-          >
-            Assignee
-          </Typography>
-          <TextField
-            select
-            size="small"
-            value={task.assigned_to ?? ""}
-            onChange={(e) =>
-              void handleAssigneeChange(e.target.value || null)
-            }
-            disabled={saving}
-            fullWidth
-          >
-            <MenuItem value="">
-              <em>Unassigned</em>
-            </MenuItem>
-            {users.map((u) => (
-              <MenuItem key={u.id} value={u.id}>
-                {u.given_name} {u.family_name}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Stack>
+        <TaskMetaSidebar
+          statuses={statuses}
+          workflowStatusId={task.workflow_status_id}
+          priority={task.priority}
+          deadlineDraft={deadlineDraft}
+          statusSelectDisabled={saving || statuses.length === 0}
+          priorityDeadlineDisabled={saving}
+          onWorkflowStatusChange={(id) => void handleStatusChange(id)}
+          onPriorityChange={(p) => void handlePriorityChange(p)}
+          onDeadlineDraftChange={(v) => {
+            setDeadlineDraft(v);
+            void handleDeadlineChange(v ? v : null);
+          }}
+          users={users}
+          assigneeId={task.assigned_to}
+          assigneeDisabled={saving}
+          onAssigneeChange={(id) => void handleAssigneeChange(id)}
+        />
       </Stack>
       {isEdit ? (
         <Stack direction="row" spacing={1}>
@@ -245,7 +313,7 @@ export function TaskPage() {
           listAccountUsers(),
         ]);
         if (!cancelled) {
-          setTask(t);
+          setTask(normalizeTask(t));
           setStatuses(statusList);
           setUsers(userList);
         }

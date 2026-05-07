@@ -45,7 +45,7 @@ class TaskService
         return Result::ok(200, $maybe->value()->toPublicArray());
     }
 
-    public function create(?string $userId, string $projectId, mixed $title, mixed $blockNoteData): Result {
+    public function create(?string $userId, string $projectId, mixed $title, mixed $blockNoteData, mixed $deadline = null, mixed $priority = null): Result {
         $projectResult = $this->requireProject($userId, $projectId);
         if ($projectResult->failed()) {
             return $projectResult;
@@ -65,6 +65,16 @@ class TaskService
             return Result::fail(400, 'validation', ['message' => 'Description is too long']);
         }
 
+        $deadlineNorm = $this->normalizeDeadline($deadline);
+        if ($deadlineNorm === false) {
+            return Result::fail(400, 'validation', ['message' => 'Deadline must be YYYY-MM-DD']);
+        }
+
+        $priorityNorm = $this->normalizePriority($priority);
+        if ($priorityNorm === false) {
+            return Result::fail(400, 'validation', ['message' => 'priority must be low, medium, or high']);
+        }
+
         $firstStatus = $this->statuses->findFirstByProjectId($projectId);
         if (!$firstStatus->hasValue()) {
             return Result::fail(400, 'validation', ['message' => 'Project has no workflow statuses']);
@@ -77,6 +87,8 @@ class TaskService
             title: $trimTitle,
             blockNoteData: $desc,
             createdBy: $user->id,
+            deadline: $deadlineNorm,
+            priority: $priorityNorm,
         ));
 
         return Result::ok(201, $task->toPublicArray());
@@ -142,6 +154,22 @@ class TaskService
             }
         }
 
+        if (array_key_exists('deadline', $patch)) {
+            $deadlineNorm = $this->normalizeDeadline($patch['deadline']);
+            if ($deadlineNorm === false) {
+                return Result::fail(400, 'validation', ['message' => 'Deadline must be YYYY-MM-DD']);
+            }
+            $fields['deadline'] = $deadlineNorm;
+        }
+
+        if (array_key_exists('priority', $patch)) {
+            $priorityNorm = $this->normalizePriority($patch['priority']);
+            if ($priorityNorm === false) {
+                return Result::fail(400, 'validation', ['message' => 'priority must be low, medium, or high']);
+            }
+            $fields['priority'] = $priorityNorm;
+        }
+
         if ($fields === []) {
             return Result::fail(400, 'validation', ['message' => 'No valid fields to update']);
         }
@@ -178,5 +206,29 @@ class TaskService
         $s = trim((string) $description);
 
         return $s === '' ? null : $s;
+    }
+
+    /** @return string|null|false null = no date; false = invalid */
+    private function normalizeDeadline(mixed $deadline): string|null|false {
+        if ($deadline === null) {
+            return null;
+        }
+        $s = trim((string) $deadline);
+        if ($s === '') {
+            return null;
+        }
+        $dt = DateTime::createFromFormat('Y-m-d', $s);
+
+        return $dt && $dt->format('Y-m-d') === $s ? $s : false;
+    }
+
+    /** @return string|false normalized slug or false if invalid */
+    private function normalizePriority(mixed $priority): string|false {
+        if ($priority === null || $priority === '') {
+            return 'medium';
+        }
+        $s = strtolower(trim((string) $priority));
+
+        return in_array($s, ['low', 'medium', 'high'], true) ? $s : false;
     }
 }
