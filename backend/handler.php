@@ -99,6 +99,18 @@ try {
             $_SESSION['userId'] ?? null,
         ),
 
+        $method === 'GET' && $route === '/account/users' => $account->listUsers(
+            $_SESSION['userId'] ?? null,
+        ),
+
+        $method === 'POST' && $route === '/account/users' => $account->addUser(
+            $_SESSION['userId'] ?? null,
+            $body['given_name'] ?? '',
+            $body['family_name'] ?? '',
+            $body['email'] ?? '',
+            $body['password'] ?? '',
+        ),
+
         $method === 'POST' && $route === '/sign-out' => (function (): Result {
             session_destroy();
             return Result::ok(200, ['message' => 'Signed out']);

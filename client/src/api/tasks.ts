@@ -39,6 +39,7 @@ export function updateTask(
     title?: string;
     blockNoteData?: string | null;
     workflow_status_id?: string;
+    assigned_to?: string | null;
   },
 ): Promise<Task> {
   return apiRequest<Task>(

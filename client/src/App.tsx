@@ -10,6 +10,7 @@ import { AppShell } from "./entry/AppShell";
 import { ProjectsIndex } from "./entry/ProjectsIndex";
 import { ProjectPage } from "./entry/ProjectPage";
 import { TaskPage } from "./entry/TaskPage";
+import { UsersPage } from "./entry/UsersPage";
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
                 path="/projects/:projectId/tasks/:taskId"
                 element={<TaskPage />}
               />
+              <Route path="/users" element={<UsersPage />} />
             </Route>
           </Route>
 

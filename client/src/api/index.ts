@@ -9,3 +9,4 @@ export {
   deleteWorkflowStatus,
 } from './workflowStatuses';
 export { listTasks, getTask, createTask, updateTask } from './tasks';
+export { listAccountUsers, addAccountUser } from './users';

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Alert,
+  Avatar,
   Box,
   Button,
   CircularProgress,
@@ -13,6 +14,7 @@ import {
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
@@ -28,7 +30,7 @@ import {
 import { useCreateBlockNote } from "@blocknote/react";
 import { Link as RouterLink } from "react-router-dom";
 
-import { type Task, type WorkflowStatus } from "../../api";
+import { type Task, type User, type WorkflowStatus } from "../../api";
 import { TaskDialog } from "./TaskDialog";
 import { TaskDescriptionEditor } from "./TaskDescriptionEditor";
 import { blocksFromStoredDescription } from "../utils/taskDescriptionBlocks";
@@ -41,12 +43,18 @@ type ProjectBoardProps = {
 const dndTaskId = (id: string) => `task:${id}`;
 const dndColId = (id: string) => `col:${id}`;
 
+const userInitials = (u: User) =>
+  `${u.given_name?.[0] ?? "?"}${u.family_name?.[0] ?? "?"}`.toUpperCase();
+const userFullName = (u: User) => `${u.given_name} ${u.family_name}`;
+
 function DraggableTaskCard({
   task,
+  users,
   onOpen,
   disabled,
 }: {
   task: Task;
+  users: User[];
   onOpen: (task: Task) => void;
   disabled: boolean;
 }) {
@@ -63,6 +71,10 @@ function DraggableTaskCard({
         zIndex: 1,
       }
     : undefined;
+
+  const assignee = task.assigned_to
+    ? users.find((u) => u.id === task.assigned_to) ?? null
+    : null;
 
   return (
     <Paper
@@ -95,6 +107,20 @@ function DraggableTaskCard({
       <Typography variant="body2" fontWeight={500} sx={{ flex: 1, pt: 0.25 }}>
         {task.title}
       </Typography>
+      {assignee ? (
+        <Tooltip title={userFullName(assignee)}>
+          <Avatar
+            sx={{
+              width: 24,
+              height: 24,
+              fontSize: 11,
+              bgcolor: "primary.main",
+            }}
+          >
+            {userInitials(assignee)}
+          </Avatar>
+        </Tooltip>
+      ) : null}
     </Paper>
   );
 }
@@ -102,11 +128,13 @@ function DraggableTaskCard({
 function StatusColumn({
   status,
   columnTasks,
+  users,
   onOpenTask,
   moving,
 }: {
   status: WorkflowStatus;
   columnTasks: Task[];
+  users: User[];
   onOpenTask: (task: Task) => void;
   moving: boolean;
 }) {
@@ -143,6 +171,7 @@ function StatusColumn({
           <DraggableTaskCard
             key={task.id}
             task={task}
+            users={users}
             onOpen={onOpenTask}
             disabled={moving}
           />
@@ -156,20 +185,24 @@ function TaskEditorModal({
   open,
   task,
   statuses,
+  users,
   saving,
   error,
   onClose,
   onSave,
   onStatusChange,
+  onAssigneeChange,
 }: {
   open: boolean;
   task: Task | null;
   statuses: WorkflowStatus[];
+  users: User[];
   saving: boolean;
   error: string;
   onClose: () => void;
   onSave: (title: string, blockNoteData: string) => void;
   onStatusChange: (taskId: string, statusId: string) => void;
+  onAssigneeChange: (taskId: string, assigneeId: string | null) => void;
 }) {
   const [title, setTitle] = useState("");
   const [mode, setMode] = useState<"view" | "edit">("view");
@@ -267,7 +300,7 @@ function TaskEditorModal({
                 variant="page"
               />
             </Stack>
-            <Stack spacing={1} sx={{ width: 200, flexShrink: 0 }}>
+            <Stack spacing={1} sx={{ width: 220, flexShrink: 0 }}>
               <Typography variant="subtitle2" color="text.secondary">
                 Status
               </Typography>
@@ -284,6 +317,32 @@ function TaskEditorModal({
                 {statuses.map((s) => (
                   <MenuItem key={s.id} value={s.id}>
                     {s.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ pt: 1 }}
+              >
+                Assignee
+              </Typography>
+              <TextField
+                select
+                size="small"
+                value={task?.assigned_to ?? ""}
+                onChange={(e) =>
+                  task && onAssigneeChange(task.id, e.target.value || null)
+                }
+                disabled={saving || !task}
+                fullWidth
+              >
+                <MenuItem value="">
+                  <em>Unassigned</em>
+                </MenuItem>
+                {users.map((u) => (
+                  <MenuItem key={u.id} value={u.id}>
+                    {userFullName(u)}
                   </MenuItem>
                 ))}
               </TextField>
@@ -333,6 +392,8 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
     closeEditor,
     handleSaveTask,
     handleStatusChange,
+    handleAssigneeChange,
+    users,
   } = useProjectBoard(projectId);
 
   if (loading) {
@@ -384,6 +445,7 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
               key={status.id}
               status={status}
               columnTasks={tasksByStatusId.get(status.id) ?? []}
+              users={users}
               onOpenTask={openEditor}
               moving={moving}
             />
@@ -443,12 +505,16 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
         open={editorOpen}
         task={selectedTask}
         statuses={statuses}
+        users={users}
         saving={savingTask}
         error={saveError}
         onClose={closeEditor}
         onSave={handleSaveTask}
         onStatusChange={(taskId, statusId) =>
           void handleStatusChange(taskId, statusId)
+        }
+        onAssigneeChange={(taskId, assigneeId) =>
+          void handleAssigneeChange(taskId, assigneeId)
         }
       />
     </Stack>
