@@ -9,6 +9,7 @@ class Task
         public readonly string $title,
         public readonly ?string $blockNoteData,
         public readonly ?string $createdBy,
+        public readonly ?string $assignedTo = null,
         public readonly ?string $createdAt = null,
         public readonly ?string $updatedAt = null,
     ) {}
@@ -22,6 +23,7 @@ class Task
             'title' => $this->title,
             'blockNoteData' => $this->blockNoteData,
             'created_by' => $this->createdBy,
+            'assigned_to' => $this->assignedTo,
             'created_at' => $this->createdAt,
             'updated_at' => $this->updatedAt,
         ];

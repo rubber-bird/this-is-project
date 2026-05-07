@@ -172,6 +172,14 @@ function ShellLayout() {
             onClose={() => setAnchorEl(null)}
           >
             <MenuItem disabled>{user?.email}</MenuItem>
+            <MenuItem
+              onClick={() => {
+                setAnchorEl(null);
+                navigate("/users");
+              }}
+            >
+              Users
+            </MenuItem>
             <MenuItem onClick={handleLogout}>Log out</MenuItem>
           </Menu>
         </Toolbar>

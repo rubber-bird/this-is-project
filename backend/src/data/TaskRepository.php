@@ -7,7 +7,7 @@ require_once __DIR__ . '/Task.php';
 
 class TaskRepository
 {
-    private const SELECT_BASE = 'SELECT id, project_id, workflow_status_id, title, description, created_by, created_at, updated_at FROM tasks';
+    private const SELECT_BASE = 'SELECT id, project_id, workflow_status_id, title, description, created_by, assigned_to, created_at, updated_at FROM tasks';
 
     /** @return Task[] */
     public function findByProjectId(string $projectId): array {
@@ -30,7 +30,7 @@ class TaskRepository
         $id = $task->id ?? Uuid::generate();
 
         $stmt = Database::get()->prepare(
-            'INSERT INTO tasks (id, project_id, workflow_status_id, title, description, created_by) VALUES (?, ?, ?, ?, ?, ?)'
+            'INSERT INTO tasks (id, project_id, workflow_status_id, title, description, created_by, assigned_to) VALUES (?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $id,
@@ -39,19 +39,21 @@ class TaskRepository
             $task->title,
             $task->blockNoteData,
             $task->createdBy,
+            $task->assignedTo,
         ]);
 
         return $this->findByIdAndProjectId($id, $task->projectId)->value();
     }
 
     /**
-     * @param array{title?: string, blockNoteData?: string|null, workflow_status_id?: string} $fields
+     * @param array{title?: string, blockNoteData?: string|null, workflow_status_id?: string, assigned_to?: string|null} $fields
      */
     public function update(string $id, string $projectId, array $fields): Task {
         $columnMap = [
             'title' => 'title',
             'blockNoteData' => 'description',
             'workflow_status_id' => 'workflow_status_id',
+            'assigned_to' => 'assigned_to',
         ];
 
         $sets = [];
@@ -98,6 +100,7 @@ class TaskRepository
             title: $row['title'],
             blockNoteData: $row['description'],
             createdBy: $row['created_by'],
+            assignedTo: $row['assigned_to'] ?? null,
             createdAt: $row['created_at'] ?? null,
             updatedAt: $row['updated_at'] ?? null,
         );

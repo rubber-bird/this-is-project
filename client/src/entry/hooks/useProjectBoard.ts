@@ -8,10 +8,12 @@ import {
 } from "@dnd-kit/core";
 import {
   createTask,
+  listAccountUsers,
   listTasks,
   listWorkflowStatuses,
   updateTask,
   type Task,
+  type User,
   type WorkflowStatus,
 } from "../../api";
 
@@ -24,6 +26,7 @@ function parseDndId(id: string): { kind: "task" | "col"; id: string } | null {
 export function useProjectBoard(projectId: string) {
   const [statuses, setStatuses] = useState<WorkflowStatus[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -64,13 +67,15 @@ export function useProjectBoard(projectId: string) {
     setError("");
     void (async () => {
       try {
-        const [statusList, taskList] = await Promise.all([
+        const [statusList, taskList, userList] = await Promise.all([
           listWorkflowStatuses(projectId),
           listTasks(projectId),
+          listAccountUsers(),
         ]);
         if (!cancelled) {
           setStatuses(statusList);
           setTasks(taskList);
+          setUsers(userList);
         }
       } catch (e) {
         if (!cancelled) {
@@ -222,6 +227,35 @@ export function useProjectBoard(projectId: string) {
     [projectId, tasks, selectedTask],
   );
 
+  const handleAssigneeChange = useCallback(
+    async (taskId: string, assigneeId: string | null) => {
+      const previousTasks = tasks;
+      const previousSelected = selectedTask;
+      setTasks((ts) =>
+        ts.map((t) =>
+          t.id === taskId ? { ...t, assigned_to: assigneeId } : t,
+        ),
+      );
+      if (selectedTask?.id === taskId) {
+        setSelectedTask({ ...selectedTask, assigned_to: assigneeId });
+      }
+      try {
+        const updated = await updateTask(projectId, taskId, {
+          assigned_to: assigneeId,
+        });
+        setTasks((ts) => ts.map((t) => (t.id === taskId ? updated : t)));
+        if (previousSelected?.id === taskId) setSelectedTask(updated);
+      } catch (e) {
+        setTasks(previousTasks);
+        setSelectedTask(previousSelected);
+        setSaveError(
+          e instanceof Error ? e.message : "Failed to change assignee",
+        );
+      }
+    },
+    [projectId, tasks, selectedTask],
+  );
+
   const handleSaveTask = useCallback(
     async (title: string, blockNoteData: string) => {
       if (!selectedTask) return;
@@ -253,6 +287,7 @@ export function useProjectBoard(projectId: string) {
   return {
     statuses,
     tasks,
+    users,
     tasksByStatusId,
     loading,
     error,
@@ -278,5 +313,6 @@ export function useProjectBoard(projectId: string) {
     closeEditor,
     handleSaveTask,
     handleStatusChange,
+    handleAssigneeChange,
   };
 }

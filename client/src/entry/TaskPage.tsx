@@ -17,9 +17,11 @@ import { useCreateBlockNote } from "@blocknote/react";
 
 import {
   getTask,
+  listAccountUsers,
   listWorkflowStatuses,
   updateTask,
   type Task,
+  type User,
   type WorkflowStatus,
 } from "../api";
 import { useSetTaskBreadcrumb } from "./BreadcrumbContext";
@@ -29,10 +31,12 @@ import { blocksFromStoredDescription } from "./utils/taskDescriptionBlocks";
 function TaskEditor({
   task,
   statuses,
+  users,
   onSaved,
 }: {
   task: Task;
   statuses: WorkflowStatus[];
+  users: User[];
   onSaved: (t: Task) => void;
 }) {
   const [title, setTitle] = useState(task.title);
@@ -100,6 +104,27 @@ function TaskEditor({
     [task.id, task.project_id, task.workflow_status_id, onSaved],
   );
 
+  const handleAssigneeChange = useCallback(
+    async (assigneeId: string | null) => {
+      if (assigneeId === task.assigned_to) return;
+      setSaveError("");
+      setSaving(true);
+      try {
+        const updated = await updateTask(task.project_id, task.id, {
+          assigned_to: assigneeId,
+        });
+        onSaved(updated);
+      } catch (e) {
+        setSaveError(
+          e instanceof Error ? e.message : "Failed to change assignee",
+        );
+      } finally {
+        setSaving(false);
+      }
+    },
+    [task.id, task.project_id, task.assigned_to, onSaved],
+  );
+
   const isEdit = mode === "edit";
 
   return (
@@ -153,6 +178,32 @@ function TaskEditor({
               </MenuItem>
             ))}
           </TextField>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ pt: 1 }}
+          >
+            Assignee
+          </Typography>
+          <TextField
+            select
+            size="small"
+            value={task.assigned_to ?? ""}
+            onChange={(e) =>
+              void handleAssigneeChange(e.target.value || null)
+            }
+            disabled={saving}
+            fullWidth
+          >
+            <MenuItem value="">
+              <em>Unassigned</em>
+            </MenuItem>
+            {users.map((u) => (
+              <MenuItem key={u.id} value={u.id}>
+                {u.given_name} {u.family_name}
+              </MenuItem>
+            ))}
+          </TextField>
         </Stack>
       </Stack>
       {isEdit ? (
@@ -178,6 +229,7 @@ export function TaskPage() {
 
   const [task, setTask] = useState<Task | null>(null);
   const [statuses, setStatuses] = useState<WorkflowStatus[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -187,13 +239,15 @@ export function TaskPage() {
     setError("");
     void (async () => {
       try {
-        const [t, statusList] = await Promise.all([
+        const [t, statusList, userList] = await Promise.all([
           getTask(projectId, taskId),
           listWorkflowStatuses(projectId),
+          listAccountUsers(),
         ]);
         if (!cancelled) {
           setTask(t);
           setStatuses(statusList);
+          setUsers(userList);
         }
       } catch (e) {
         if (!cancelled) {
@@ -244,6 +298,7 @@ export function TaskPage() {
         key={task.id}
         task={task}
         statuses={statuses}
+        users={users}
         onSaved={setTask}
       />
     </Stack>

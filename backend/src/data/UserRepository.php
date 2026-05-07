@@ -23,6 +23,15 @@ class UserRepository
         return $row ? Maybe::some($this->hydrate($row)) : Maybe::none();
     }
 
+    /** @return User[] */
+    public function findAllByAccountId(string $accountId): array {
+        $stmt = Database::get()->prepare("SELECT id, account_id, given_name, family_name, email, password, role FROM users WHERE account_id = ? ORDER BY given_name ASC, family_name ASC");
+        $stmt->execute([$accountId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return array_map(fn (array $row) => $this->hydrate($row), $rows);
+    }
+
     public function save(User $user): User {
         $id = $user->id ?? Uuid::generate();
 

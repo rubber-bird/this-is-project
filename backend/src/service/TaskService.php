@@ -88,6 +88,7 @@ class TaskService
         if ($projectResult->failed()) {
             return $projectResult;
         }
+        $project = $projectResult->value()['project'];
 
         $maybe = $this->tasks->findByIdAndProjectId($taskId, $projectId);
         if (!$maybe->hasValue()) {
@@ -125,6 +126,20 @@ class TaskService
                 return Result::fail(400, 'validation', ['message' => 'Invalid workflow status for this project']);
             }
             $fields['workflow_status_id'] = $wsId;
+        }
+
+        if (array_key_exists('assigned_to', $patch)) {
+            $rawAssignee = $patch['assigned_to'];
+            if ($rawAssignee === null || $rawAssignee === '') {
+                $fields['assigned_to'] = null;
+            } else {
+                $assigneeId = trim((string) $rawAssignee);
+                $assigneeMaybe = $this->users->findById($assigneeId);
+                if (!$assigneeMaybe->hasValue() || $assigneeMaybe->value()->accountId !== $project->accountId) {
+                    return Result::fail(400, 'validation', ['message' => 'Invalid assignee for this project']);
+                }
+                $fields['assigned_to'] = $assigneeId;
+            }
         }
 
         if ($fields === []) {
