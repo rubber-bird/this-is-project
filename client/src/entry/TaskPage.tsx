@@ -27,7 +27,7 @@ import {
 import { useSetTaskBreadcrumb } from "./BreadcrumbContext";
 import { TaskDescriptionEditor } from "./components/TaskDescriptionEditor";
 import { TaskMetaSidebar } from "./components/TaskMetaSidebar";
-import { blocksFromStoredDescription } from "./utils/taskDescriptionBlocks";
+import { applyTaskDescriptionToEditor } from "./utils/taskDescriptionBlocks";
 import { deadlineInputValue } from "./utils/deadlineInputValue";
 import {
   mergeTaskResponse,
@@ -59,8 +59,7 @@ function TaskEditor({
   useEffect(() => {
     setTitle(task.title);
     setMode("view");
-    const blocks = blocksFromStoredDescription(task.blockNoteData);
-    editorRef.current.replaceBlocks(editorRef.current.document, blocks);
+    applyTaskDescriptionToEditor(editorRef.current, task.blockNoteData);
   }, [task.id, task.title, task.blockNoteData]);
 
   useEffect(() => {
@@ -99,8 +98,7 @@ function TaskEditor({
   const handleCancelEdit = useCallback(() => {
     setTitle(task.title);
     setDeadlineDraft(deadlineInputValue(task.deadline));
-    const blocks = blocksFromStoredDescription(task.blockNoteData);
-    editor.replaceBlocks(editor.document, blocks);
+    applyTaskDescriptionToEditor(editor, task.blockNoteData);
     setSaveError("");
     setMode("view");
   }, [task.title, task.blockNoteData, task.deadline, editor]);

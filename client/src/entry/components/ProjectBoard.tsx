@@ -199,9 +199,11 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
     selectedTask,
     saveError,
     savingTask,
+    deletingTask,
     openEditor,
     closeEditor,
     handleSaveTask,
+    handleDeleteTask,
     handleStatusChange,
     handleAssigneeChange,
     handleDeadlineChange,
@@ -334,6 +336,8 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
         onAssigneeChange={(taskId, assigneeId) =>
           void handleAssigneeChange(taskId, assigneeId)
         }
+        onDelete={() => void handleDeleteTask()}
+        deleting={deletingTask}
       />
     </Stack>
   );

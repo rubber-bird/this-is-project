@@ -54,3 +54,14 @@ export interface Task {
   created_at: string | null;
   updated_at: string | null;
 }
+
+export interface AssistantHistoryMessage {
+  role: "user" | "assistant";
+  text: string;
+}
+
+export interface AssistantChatResponse {
+  assistant_message: string;
+  executed_actions: string[];
+  errors: string[];
+}

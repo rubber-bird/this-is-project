@@ -102,6 +102,11 @@ class TaskRepository
         $stmt->execute([$toStatusId, $projectId, $fromStatusId]);
     }
 
+    public function delete(string $id, string $projectId): void {
+        $stmt = Database::get()->prepare('DELETE FROM tasks WHERE id = ? AND project_id = ?');
+        $stmt->execute([$id, $projectId]);
+    }
+
     private function hydrate(array $row): Task {
         return new Task(
             id: $row['id'],

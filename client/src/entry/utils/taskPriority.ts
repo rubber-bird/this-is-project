@@ -1,5 +1,6 @@
 import type { Task, TaskPriority } from "../../api/types";
 import { mergeTaskDeadline } from "./deadlineInputValue";
+import { coerceTaskDescriptionString } from "./taskDescriptionBlocks";
 
 export function taskPriorityOrDefault(
   p: string | null | undefined,
@@ -10,8 +11,10 @@ export function taskPriorityOrDefault(
 }
 
 export function normalizeTask(t: Task): Task {
+  const body = t as Task & { blockNoteData?: unknown };
   return {
     ...t,
+    blockNoteData: coerceTaskDescriptionString(body.blockNoteData),
     priority: taskPriorityOrDefault(
       (t as { priority?: string | null }).priority,
     ),
@@ -23,7 +26,10 @@ export function mergeTaskResponse(
   fallback: { deadline: string | null; priority: TaskPriority },
 ): Task {
   const mergedDeadline = mergeTaskDeadline(updated, fallback.deadline);
-  return { ...mergedDeadline, priority: fallback.priority };
+  return normalizeTask({
+    ...mergedDeadline,
+    priority: fallback.priority,
+  } as Task);
 }
 
 export function priorityMarkerColor(priority: TaskPriority): string {

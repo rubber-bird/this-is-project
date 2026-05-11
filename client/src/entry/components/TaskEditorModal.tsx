@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -11,8 +12,10 @@ import {
   Stack,
   TextField,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
 import CloseIcon from "@mui/icons-material/Close";
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditIcon from "@mui/icons-material/Edit";
 import { useCreateBlockNote } from "@blocknote/react";
 import { Link as RouterLink } from "react-router-dom";
 
@@ -24,7 +27,7 @@ import {
 } from "../../api";
 import { TaskDescriptionEditor } from "./TaskDescriptionEditor";
 import { TaskMetaSidebar } from "./TaskMetaSidebar";
-import { blocksFromStoredDescription } from "../utils/taskDescriptionBlocks";
+import { applyTaskDescriptionToEditor } from "../utils/taskDescriptionBlocks";
 import { deadlineInputValue } from "../utils/deadlineInputValue";
 
 export type TaskEditorModalProps = {
@@ -44,6 +47,8 @@ export type TaskEditorModalProps = {
   onPriorityChange: (taskId: string, priority: TaskPriority) => void;
   onDeadlineChange: (taskId: string, deadline: string | null) => void;
   onAssigneeChange: (taskId: string, assigneeId: string | null) => void;
+  onDelete?: () => void | Promise<void>;
+  deleting?: boolean;
 };
 
 export function TaskEditorModal({
@@ -59,10 +64,13 @@ export function TaskEditorModal({
   onPriorityChange,
   onDeadlineChange,
   onAssigneeChange,
+  onDelete,
+  deleting = false,
 }: TaskEditorModalProps) {
   const [title, setTitle] = useState("");
   const [deadlineDraft, setDeadlineDraft] = useState("");
   const [mode, setMode] = useState<"view" | "edit">("view");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const editor = useCreateBlockNote({}, [task?.id ?? ""]);
   const editorRef = useRef(editor);
   editorRef.current = editor;
@@ -71,8 +79,7 @@ export function TaskEditorModal({
     if (!task) return;
     setTitle(task.title);
     setMode("view");
-    const blocks = blocksFromStoredDescription(task.blockNoteData);
-    editorRef.current.replaceBlocks(editorRef.current.document, blocks);
+    applyTaskDescriptionToEditor(editorRef.current, task.blockNoteData);
   }, [task?.id, task?.title, task?.blockNoteData]);
 
   useEffect(() => {
@@ -82,6 +89,13 @@ export function TaskEditorModal({
     }
     setDeadlineDraft(deadlineInputValue(task.deadline));
   }, [task?.id]);
+
+  useEffect(() => {
+    if (!open) setDeleteConfirmOpen(false);
+  }, [open]);
+
+  const busy = saving || deleting;
+  const canDelete = Boolean(task && onDelete);
 
   const handleSave = () => {
     onSave(
@@ -95,18 +109,31 @@ export function TaskEditorModal({
     if (task) {
       setTitle(task.title);
       setDeadlineDraft(deadlineInputValue(task.deadline));
-      const blocks = blocksFromStoredDescription(task.blockNoteData);
-      editor.replaceBlocks(editor.document, blocks);
+      applyTaskDescriptionToEditor(editor, task.blockNoteData);
     }
     setMode("view");
   };
 
   const isEdit = mode === "edit";
 
+  const deleteButton = canDelete ? (
+    <Button
+      color="error"
+      variant="outlined"
+      size="small"
+      startIcon={<DeleteOutlineIcon />}
+      onClick={() => setDeleteConfirmOpen(true)}
+      disabled={busy}
+      aria-label="Delete task"
+    >
+      Delete task
+    </Button>
+  ) : null;
+
   return (
     <Dialog
       open={open}
-      onClose={saving ? undefined : onClose}
+      onClose={busy ? undefined : onClose}
       fullWidth
       maxWidth="md"
     >
@@ -146,7 +173,7 @@ export function TaskEditorModal({
         <IconButton
           size="small"
           onClick={onClose}
-          disabled={saving}
+          disabled={busy}
           aria-label="Close"
         >
           <CloseIcon fontSize="small" />
@@ -163,12 +190,12 @@ export function TaskEditorModal({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   fullWidth
-                  disabled={saving}
+                  disabled={busy}
                 />
               ) : null}
               <TaskDescriptionEditor
                 editor={editor}
-                editable={isEdit && !saving}
+                editable={isEdit && !busy}
                 variant="page"
               />
             </Stack>
@@ -177,8 +204,8 @@ export function TaskEditorModal({
               workflowStatusId={task?.workflow_status_id ?? ""}
               priority={task?.priority}
               deadlineDraft={deadlineDraft}
-              statusSelectDisabled={saving || !task || statuses.length === 0}
-              priorityDeadlineDisabled={saving || !task}
+              statusSelectDisabled={busy || !task || statuses.length === 0}
+              priorityDeadlineDisabled={busy || !task}
               onWorkflowStatusChange={(statusId) => {
                 if (task) void onStatusChange(task.id, statusId);
               }}
@@ -191,7 +218,7 @@ export function TaskEditorModal({
               }}
               users={users}
               assigneeId={task?.assigned_to ?? null}
-              assigneeDisabled={saving || !task}
+              assigneeDisabled={busy || !task}
               onAssigneeChange={(id) => {
                 if (task) void onAssigneeChange(task.id, id);
               }}
@@ -199,16 +226,88 @@ export function TaskEditorModal({
           </Stack>
         </Stack>
       </DialogContent>
-      {isEdit ? (
-        <DialogActions>
-          <Button onClick={handleCancelEdit} disabled={saving}>
-            Cancel
-          </Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving…" : "Save changes"}
-          </Button>
+      {!isEdit && deleteButton ? (
+        <DialogActions
+          sx={{
+            justifyContent: "flex-start",
+            px: 2,
+            py: 1.5,
+            borderTop: 1,
+            borderColor: "divider",
+            bgcolor: (theme) =>
+              theme.palette.mode === "dark"
+                ? "action.hover"
+                : "grey.50",
+          }}
+        >
+          {deleteButton}
         </DialogActions>
       ) : null}
+      {isEdit ? (
+        <DialogActions
+          sx={{ justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}
+        >
+          <Box sx={{ display: "flex", gap: 1 }}>{deleteButton}</Box>
+          <Stack direction="row" spacing={1}>
+            <Button onClick={handleCancelEdit} disabled={busy}>
+              Cancel
+            </Button>
+            <Button variant="contained" onClick={handleSave} disabled={busy}>
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
+          </Stack>
+        </DialogActions>
+      ) : null}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={deleting ? undefined : () => setDeleteConfirmOpen(false)}
+      >
+        <DialogTitle
+          color="text.primary"
+          sx={{ display: "flex", alignItems: "center", gap: 1, pr: 6 }}
+        >
+          <DeleteOutlineIcon color="error" fontSize="small" />
+          Delete this task?
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" variant="outlined" sx={{ mt: 0.5 }}>
+            This will permanently remove &ldquo;{title}&rdquo;. You cannot undo
+            this action.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setDeleteConfirmOpen(false)}
+            disabled={deleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={deleting}
+            startIcon={
+              deleting ? (
+                <CircularProgress color="inherit" size={18} />
+              ) : (
+                <DeleteForeverIcon fontSize="small" />
+              )
+            }
+            onClick={() => {
+              void (async () => {
+                try {
+                  await onDelete?.();
+                } finally {
+                  setDeleteConfirmOpen(false);
+                }
+              })();
+            }}
+          >
+            {deleting ? "Deleting…" : "Delete permanently"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }

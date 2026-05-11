@@ -6,6 +6,7 @@ require_once __DIR__ . '/../data/ProjectRepository.php';
 require_once __DIR__ . '/../data/WorkflowStatusRepository.php';
 require_once __DIR__ . '/../data/TaskRepository.php';
 require_once __DIR__ . '/../data/Task.php';
+require_once __DIR__ . '/../util/BlockNoteJson.php';
 
 class TaskService
 {
@@ -179,6 +180,22 @@ class TaskService
         return Result::ok(200, $updated->toPublicArray());
     }
 
+    public function delete(?string $userId, string $projectId, string $taskId): Result {
+        $projectResult = $this->requireProject($userId, $projectId);
+        if ($projectResult->failed()) {
+            return $projectResult;
+        }
+
+        $maybe = $this->tasks->findByIdAndProjectId($taskId, $projectId);
+        if (!$maybe->hasValue()) {
+            return Result::fail(404, 'not_found', ['message' => 'Task not found']);
+        }
+
+        $this->tasks->delete($taskId, $projectId);
+
+        return Result::ok(200, ['message' => 'Deleted']);
+    }
+
     /** @return Result value: ['user' => User, 'project' => Project] */
     private function requireProject(?string $userId, string $projectId): Result {
         if (!$userId) {
@@ -203,7 +220,17 @@ class TaskService
         if ($description === null) {
             return null;
         }
+        if (is_array($description)) {
+            try {
+                $description = json_encode($description, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            } catch (Throwable) {
+                return null;
+            }
+        }
         $s = trim((string) $description);
+        if ($s !== '' && ($s[0] === '[' || $s[0] === '{')) {
+            $s = BlockNoteJson::stripBlockIdsFromDocument($s);
+        }
 
         return $s === '' ? null : $s;
     }
