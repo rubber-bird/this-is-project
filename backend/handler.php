@@ -1,5 +1,6 @@
 <?php
 
+require_once __DIR__ . '/src/util/EnvConfig.php';
 require_once __DIR__ . '/src/util/Database.php';
 require_once __DIR__ . '/src/util/Logger.php';
 require_once __DIR__ . '/src/util/Result.php';
@@ -16,7 +17,7 @@ require_once __DIR__ . '/src/data/TaskRepository.php';
 
 header('Content-Type: application/json');
 
-$env = json_decode(file_get_contents(__DIR__ . '/env.json'), true);
+$env = EnvConfig::loadJson(__DIR__);
 $logger = new Logger(__DIR__ . '/logs/app.log');
 
 try {
@@ -46,7 +47,7 @@ $assistant = new AiAssistantService(
     $workflowStatusRepo,
     $taskRepo,
     $tasks,
-    (string) (($env['gemini_api_key'] ?? getenv('GEMINI_API_KEY') ?? '')),
+    EnvConfig::geminiApiKey($env),
 );
 
 // ── Route ──
