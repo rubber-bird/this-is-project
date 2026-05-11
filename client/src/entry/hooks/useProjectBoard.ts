@@ -8,6 +8,7 @@ import {
 } from "@dnd-kit/core";
 import {
   createTask,
+  deleteTask,
   listAccountUsers,
   listTasks,
   listWorkflowStatuses,
@@ -49,6 +50,7 @@ export function useProjectBoard(projectId: string) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [saveError, setSaveError] = useState("");
   const [savingTask, setSavingTask] = useState(false);
+  const [deletingTask, setDeletingTask] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -203,11 +205,11 @@ export function useProjectBoard(projectId: string) {
   }, []);
 
   const closeEditor = useCallback(() => {
-    if (savingTask) return;
+    if (savingTask || deletingTask) return;
     setEditorOpen(false);
     setSelectedTask(null);
     setSaveError("");
-  }, [savingTask]);
+  }, [savingTask, deletingTask]);
 
   const handleDeadlineChange = useCallback(
     async (taskId: string, nextDeadline: string | null) => {
@@ -387,6 +389,22 @@ export function useProjectBoard(projectId: string) {
     [projectId, selectedTask],
   );
 
+  const handleDeleteTask = useCallback(async () => {
+    if (!selectedTask) return;
+    setSaveError("");
+    setDeletingTask(true);
+    try {
+      await deleteTask(projectId, selectedTask.id);
+      setTasks((ts) => ts.filter((t) => t.id !== selectedTask.id));
+      setEditorOpen(false);
+      setSelectedTask(null);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Failed to delete task");
+    } finally {
+      setDeletingTask(false);
+    }
+  }, [projectId, selectedTask]);
+
   return {
     statuses,
     tasks,
@@ -412,9 +430,11 @@ export function useProjectBoard(projectId: string) {
     selectedTask,
     saveError,
     savingTask,
+    deletingTask,
     openEditor,
     closeEditor,
     handleSaveTask,
+    handleDeleteTask,
     handleStatusChange,
     handleAssigneeChange,
     handleDeadlineChange,

@@ -9,6 +9,7 @@ require_once __DIR__ . '/src/service/AccountService.php';
 require_once __DIR__ . '/src/service/ProjectService.php';
 require_once __DIR__ . '/src/service/WorkflowStatusService.php';
 require_once __DIR__ . '/src/service/TaskService.php';
+require_once __DIR__ . '/src/service/AiAssistantService.php';
 require_once __DIR__ . '/src/data/ProjectRepository.php';
 require_once __DIR__ . '/src/data/WorkflowStatusRepository.php';
 require_once __DIR__ . '/src/data/TaskRepository.php';
@@ -39,6 +40,14 @@ $workflowStatusRepo = new WorkflowStatusRepository();
 $taskRepo = new TaskRepository();
 $workflowStatuses = new WorkflowStatusService($users, $projectRepo, $workflowStatusRepo, $taskRepo);
 $tasks = new TaskService($users, $projectRepo, $workflowStatusRepo, $taskRepo);
+$assistant = new AiAssistantService(
+    $users,
+    $projectRepo,
+    $workflowStatusRepo,
+    $taskRepo,
+    $tasks,
+    (string) (($env['gemini_api_key'] ?? getenv('GEMINI_API_KEY') ?? '')),
+);
 
 // ── Route ──
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -73,6 +82,11 @@ $taskPathTaskId = null;
 if (preg_match('#^/projects/([^/]+)/tasks/([^/]+)$#', $route, $taskMatch)) {
     $taskPathProjectId = $taskMatch[1];
     $taskPathTaskId = $taskMatch[2];
+}
+
+$projectAssistantId = null;
+if (preg_match('#^/projects/([^/]+)/assistant/chat$#', $route, $assistantMatch)) {
+    $projectAssistantId = $assistantMatch[1];
 }
 
 try {
@@ -197,6 +211,19 @@ try {
             $taskPathProjectId,
             $taskPathTaskId,
             $body,
+        ),
+
+        $method === 'DELETE' && $taskPathProjectId !== null && $taskPathTaskId !== null => $tasks->delete(
+            $_SESSION['userId'] ?? null,
+            $taskPathProjectId,
+            $taskPathTaskId,
+        ),
+
+        $method === 'POST' && $projectAssistantId !== null => $assistant->handlePrompt(
+            $_SESSION['userId'] ?? null,
+            $projectAssistantId,
+            $body['prompt'] ?? '',
+            $body['history'] ?? null,
         ),
 
         default => null,

@@ -56,3 +56,15 @@ export function updateTask(
     },
   );
 }
+
+export function deleteTask(
+  projectId: string,
+  taskId: string,
+): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>(
+    `/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`,
+    {
+      method: "DELETE",
+    },
+  );
+}

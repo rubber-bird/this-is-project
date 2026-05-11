@@ -19,6 +19,7 @@ import { ProjectDialog } from "./components/ProjectDialog";
 import type { StatusDraft } from "./components/StatusRow";
 import { DeleteProjectDialog } from "./components/DeleteProjectDialog";
 import { ManageStatusesDialog } from "./components/ManageStatusesDialog";
+import { ProjectAssistantChat } from "./components/ProjectAssistantChat";
 
 export function ProjectPage() {
   const { projectId = "" } = useParams();
@@ -188,6 +189,10 @@ export function ProjectPage() {
         projectId={project.id}
         onClose={() => setManageOpen(false)}
         onSaved={() => setBoardKey((k) => k + 1)}
+      />
+      <ProjectAssistantChat
+        projectId={project.id}
+        onActionsApplied={() => setBoardKey((k) => k + 1)}
       />
     </Stack>
   );
