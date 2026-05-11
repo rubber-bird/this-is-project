@@ -8,9 +8,10 @@
 $baseDir       = dirname(__DIR__);
 $migrationsDir = $baseDir . '/migrations';
 
+require_once $baseDir . '/src/util/EnvConfig.php';
 require_once $baseDir . '/src/util/Database.php';
 
-$env = json_decode(file_get_contents($baseDir . '/env.json'), true);
+$env = EnvConfig::loadJson($baseDir);
 Database::connect($env['database']);
 $pdo = Database::get();
 

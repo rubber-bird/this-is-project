@@ -1,5 +1,11 @@
 # Server
 
+## Configuration
+
+1. Copy `env.example.json` to `env.json` in this directory.
+2. Set **database** `host`, `port`, `database`, `username`, and `password` for MySQL.
+3. Optional: set **gemini_api_key** for the in-app project assistant (Google Gemini). You can leave it empty if you do not use that feature, or set the **`GEMINI_API_KEY`** environment variable instead (it overrides `env.json` when non-empty).
+
 ## Run
 
 The server would be accessible at http://localhost:9003/
