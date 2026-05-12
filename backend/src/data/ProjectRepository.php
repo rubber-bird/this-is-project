@@ -18,6 +18,13 @@ class ProjectRepository
         return array_map(fn (array $row) => $this->hydrate($row), $rows);
     }
 
+    public function countByAccountId(string $accountId): int {
+        $stmt = Database::get()->prepare('SELECT COUNT(*) FROM projects WHERE account_id = ?');
+        $stmt->execute([$accountId]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
     public function findByIdAndAccountId(string $id, string $accountId): Maybe {
         $stmt = Database::get()->prepare(self::SELECT_BASE . ' WHERE id = ? AND account_id = ?');
         $stmt->execute([$id, $accountId]);

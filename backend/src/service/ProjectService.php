@@ -2,14 +2,18 @@
 
 require_once __DIR__ . '/../util/Result.php';
 require_once __DIR__ . '/../data/UserRepository.php';
+require_once __DIR__ . '/../data/AccountRepository.php';
 require_once __DIR__ . '/../data/ProjectRepository.php';
 require_once __DIR__ . '/../data/Project.php';
 
 class ProjectService
 {
+    private const FREE_PROJECT_LIMIT = 3;
+
     public function __construct(
         private readonly UserRepository $users,
         private readonly ProjectRepository $projects,
+        private readonly AccountRepository $accounts,
     ) {}
 
     public function list(?string $userId): Result {
@@ -62,6 +66,18 @@ class ProjectService
 
         if ($this->projects->findByAccountIdAndName($user->accountId, $trimName)->hasValue()) {
             return Result::fail(409, 'conflict', ['message' => 'A project with this name already exists']);
+        }
+
+        $accountMaybe = $this->accounts->findById($user->accountId);
+        if ($accountMaybe->hasValue() && $accountMaybe->value()->plan === 'free') {
+            $count = $this->projects->countByAccountId($user->accountId);
+            if ($count >= self::FREE_PROJECT_LIMIT) {
+                return Result::fail(400, 'plan_limit', [
+                    'message' => 'Free plan is limited to ' . self::FREE_PROJECT_LIMIT . ' projects. Upgrade to Pro for unlimited projects.',
+                    'limit' => self::FREE_PROJECT_LIMIT,
+                    'plan' => 'free',
+                ]);
+            }
         }
 
         $project = $this->projects->save(new Project(

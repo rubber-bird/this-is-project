@@ -3,15 +3,18 @@ import {
   Avatar,
   Box,
   Button,
+  Chip,
   CircularProgress,
   IconButton,
   Paper,
   Stack,
   Tooltip,
   Typography,
+  alpha,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import InboxRoundedIcon from "@mui/icons-material/InboxRounded";
 import {
   DndContext,
   DragOverlay,
@@ -68,18 +71,25 @@ function DraggableTaskCard({
   return (
     <Paper
       ref={setNodeRef}
-      variant="outlined"
       {...attributes}
       style={style}
       sx={{
-        p: 1,
+        p: 1.25,
         display: "flex",
         gap: 0.5,
         alignItems: "flex-start",
-        bgcolor: "background.default",
-        opacity: isDragging ? 0.45 : 1,
+        bgcolor: "background.paper",
+        border: "1px solid",
+        borderColor: "divider",
+        boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+        opacity: isDragging ? 0.5 : 1,
         cursor: "pointer",
-        "&:hover": { borderColor: "primary.main" },
+        transition: "transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease",
+        "&:hover": {
+          borderColor: "primary.main",
+          transform: "translateY(-1px)",
+          boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
+        },
       }}
       onClick={() => onOpen(task)}
     >
@@ -92,7 +102,7 @@ function DraggableTaskCard({
             {...listeners}
             aria-label="Drag to move task"
             onClick={(e) => e.stopPropagation()}
-            sx={{ mt: -0.25, cursor: "grab" }}
+            sx={{ mt: -0.25, cursor: "grab", color: "text.secondary" }}
             disabled={disabled}
           >
             <DragIndicatorIcon fontSize="small" />
@@ -138,38 +148,101 @@ function StatusColumn({
     disabled: moving,
   });
 
+  const accentColor = status.color ?? "#94a3b8";
+  const tintedBg = alpha(accentColor, 0.08);
+
   return (
     <Paper
       ref={setNodeRef}
-      variant="outlined"
       sx={{
-        minWidth: 240,
-        maxWidth: 240,
-        p: 1.5,
-        borderTop: 4,
-        borderTopColor: status.color ?? "grey.400",
+        minWidth: 280,
+        maxWidth: 280,
+        p: 0,
+        border: "1px solid",
+        borderColor: "divider",
+        borderTop: `4px solid ${accentColor}`,
+        borderRadius: 2,
         display: "flex",
         flexDirection: "column",
-        gap: 1,
+        overflow: "hidden",
+        boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
         outline: isOver ? "2px dashed" : "none",
         outlineColor: "primary.main",
         outlineOffset: 2,
-        bgcolor: isOver ? "action.hover" : "background.paper",
+        bgcolor: "background.paper",
+        transition: "box-shadow 120ms ease",
       }}
     >
-      <Typography variant="subtitle2" fontWeight={600}>
-        {status.name}
-      </Typography>
-      <Stack spacing={1} sx={{ minHeight: 120, flex: 1 }}>
-        {columnTasks.map((task) => (
-          <DraggableTaskCard
-            key={task.id}
-            task={task}
-            users={users}
-            onOpen={onOpenTask}
-            disabled={moving}
-          />
-        ))}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          px: 1.75,
+          py: 1.25,
+          bgcolor: tintedBg,
+        }}
+      >
+        <Typography
+          variant="subtitle2"
+          sx={{ fontWeight: 700, color: "text.primary", flex: 1 }}
+        >
+          {status.name}
+        </Typography>
+        <Chip
+          size="small"
+          label={columnTasks.length}
+          sx={{
+            height: 22,
+            minWidth: 28,
+            bgcolor: alpha(accentColor, 0.18),
+            color: accentColor,
+            fontWeight: 700,
+            "& .MuiChip-label": { px: 1 },
+          }}
+        />
+      </Box>
+      <Stack
+        spacing={1}
+        sx={{
+          minHeight: 140,
+          flex: 1,
+          p: 1.5,
+          bgcolor: isOver ? "action.hover" : "transparent",
+          transition: "background-color 120ms ease",
+        }}
+      >
+        {columnTasks.length === 0 ? (
+          <Stack
+            spacing={0.5}
+            alignItems="center"
+            justifyContent="center"
+            sx={{
+              flex: 1,
+              py: 3,
+              color: "text.secondary",
+              textAlign: "center",
+            }}
+          >
+            <InboxRoundedIcon sx={{ fontSize: 28, opacity: 0.5 }} />
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              No tasks
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+              Tasks in this status will appear here.
+            </Typography>
+          </Stack>
+        ) : (
+          columnTasks.map((task) => (
+            <DraggableTaskCard
+              key={task.id}
+              task={task}
+              users={users}
+              onOpen={onOpenTask}
+              disabled={moving}
+            />
+          ))
+        )}
       </Stack>
     </Paper>
   );
@@ -236,9 +309,16 @@ export function ProjectBoard({ projectId }: ProjectBoardProps) {
       {moveError ? <Alert severity="error">{moveError}</Alert> : null}
       <Button
         variant="contained"
+        size="large"
         startIcon={<AddIcon />}
         onClick={openDialog}
-        sx={{ alignSelf: "flex-start" }}
+        sx={{
+          alignSelf: "flex-start",
+          px: 2.5,
+          py: 1.1,
+          fontSize: 14,
+          fontWeight: 700,
+        }}
         disabled={moving}
       >
         Add task
