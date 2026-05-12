@@ -11,6 +11,7 @@ import { ProjectsIndex } from "./entry/ProjectsIndex";
 import { ProjectPage } from "./entry/ProjectPage";
 import { TaskPage } from "./entry/TaskPage";
 import { UsersPage } from "./entry/UsersPage";
+import { BillingPage } from "./entry/BillingPage";
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
                 element={<TaskPage />}
               />
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/billing" element={<BillingPage />} />
             </Route>
           </Route>
 

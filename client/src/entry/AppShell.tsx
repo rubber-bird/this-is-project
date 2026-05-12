@@ -136,14 +136,18 @@ function ShellLayout() {
   };
 
   return (
-    <Box sx={{ display: "flex", height: "100vh" }}>
+    <Box
+      sx={{
+        display: "flex",
+        height: "100vh",
+        bgcolor: "background.default",
+      }}
+    >
       <AppBar
         position="fixed"
-        color="default"
-        elevation={1}
         sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}
       >
-        <Toolbar>
+        <Toolbar sx={{ minHeight: { xs: 72, sm: 80 }, gap: 1 }}>
           <IconButton
             edge="start"
             sx={{ mr: 2 }}
@@ -151,16 +155,21 @@ function ShellLayout() {
           >
             {drawerOpen ? <ChevronLeftIcon /> : <MenuIcon />}
           </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          <Typography
+            variant="h6"
+            sx={{ flexGrow: 1, fontWeight: 700, letterSpacing: "-0.2px" }}
+          >
             Dashboard
           </Typography>
           <IconButton onClick={(e) => setAnchorEl(e.currentTarget)}>
             <Avatar
               sx={{
                 bgcolor: "primary.main",
-                width: 36,
-                height: 36,
+                width: 40,
+                height: 40,
                 fontSize: 14,
+                fontWeight: 700,
+                boxShadow: "0 4px 12px rgba(8, 44, 246, 0.25)",
               }}
             >
               {initials}
@@ -180,6 +189,16 @@ function ShellLayout() {
             >
               Users
             </MenuItem>
+            {user?.role === "owner" ? (
+              <MenuItem
+                onClick={() => {
+                  setAnchorEl(null);
+                  navigate("/billing");
+                }}
+              >
+                Billing
+              </MenuItem>
+            ) : null}
             <MenuItem onClick={handleLogout}>Log out</MenuItem>
           </Menu>
         </Toolbar>
@@ -200,10 +219,11 @@ function ShellLayout() {
           display: "flex",
           flexDirection: "column",
           minWidth: 0,
+          bgcolor: "background.default",
         }}
       >
-        <Toolbar />
-        <Box sx={{ flexGrow: 1, p: 3, overflow: "auto" }}>
+        <Toolbar sx={{ minHeight: { xs: 72, sm: 80 } }} />
+        <Box sx={{ flexGrow: 1, p: { xs: 2, sm: 3, md: 4 }, overflow: "auto" }}>
           <AppBreadcrumbs />
           <Outlet />
         </Box>

@@ -4,6 +4,7 @@ import {
   Button,
   CircularProgress,
   Divider,
+  Paper,
   Stack,
   Typography,
 } from "@mui/material";
@@ -117,47 +118,66 @@ export function ProjectPage() {
   }
 
   return (
-    <Stack spacing={2} alignItems="stretch">
-      <Stack spacing={2} alignItems="flex-start" maxWidth={560}>
-        <Typography variant="h4" component="h1" color="text.primary">
-          {project.name}
-        </Typography>
-        {project.description ? (
+    <Paper
+      sx={{
+        p: { xs: 2.5, sm: 3.5, md: 4 },
+        borderRadius: 3,
+        border: "1px solid",
+        borderColor: "divider",
+        boxShadow:
+          "0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.04)",
+      }}
+    >
+      <Stack spacing={3} alignItems="stretch">
+        <Stack spacing={1.5} alignItems="flex-start" maxWidth={720}>
           <Typography
-            variant="body1"
-            color="text.secondary"
-            sx={{ whiteSpace: "pre-wrap" }}
+            variant="h4"
+            component="h1"
+            color="text.primary"
+            sx={{ fontWeight: 700, letterSpacing: "-0.5px" }}
           >
-            {project.description}
+            {project.name}
           </Typography>
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            No description
-          </Typography>
-        )}
-        <Stack direction="row" spacing={1}>
-          <Button variant="outlined" startIcon={<EditIcon />} onClick={openEdit}>
-            Edit
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<TuneIcon />}
-            onClick={() => setManageOpen(true)}
-          >
-            Manage statuses
-          </Button>
-          <Button
-            color="error"
-            variant="outlined"
-            startIcon={<DeleteOutlineIcon />}
-            onClick={() => setDeleteOpen(true)}
-          >
-            Delete
-          </Button>
+          {project.description ? (
+            <Typography
+              variant="body1"
+              color="text.secondary"
+              sx={{ whiteSpace: "pre-wrap" }}
+            >
+              {project.description}
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No description
+            </Typography>
+          )}
+          <Stack direction="row" spacing={1} sx={{ pt: 1 }}>
+            <Button
+              variant="outlined"
+              startIcon={<EditIcon />}
+              onClick={openEdit}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<TuneIcon />}
+              onClick={() => setManageOpen(true)}
+            >
+              Manage statuses
+            </Button>
+            <Button
+              color="error"
+              variant="outlined"
+              startIcon={<DeleteOutlineIcon />}
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete
+            </Button>
+          </Stack>
         </Stack>
-      </Stack>
-      <Divider />
-      <ProjectBoard key={boardKey} projectId={project.id} />
+        <Divider />
+        <ProjectBoard key={boardKey} projectId={project.id} />
 
       <ProjectDialog
         mode={editOpen ? "edit" : null}
@@ -194,6 +214,7 @@ export function ProjectPage() {
         projectId={project.id}
         onActionsApplied={() => setBoardKey((k) => k + 1)}
       />
-    </Stack>
+      </Stack>
+    </Paper>
   );
 }

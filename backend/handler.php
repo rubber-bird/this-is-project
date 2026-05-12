@@ -11,9 +11,11 @@ require_once __DIR__ . '/src/service/ProjectService.php';
 require_once __DIR__ . '/src/service/WorkflowStatusService.php';
 require_once __DIR__ . '/src/service/TaskService.php';
 require_once __DIR__ . '/src/service/AiAssistantService.php';
+require_once __DIR__ . '/src/service/BillingService.php';
 require_once __DIR__ . '/src/data/ProjectRepository.php';
 require_once __DIR__ . '/src/data/WorkflowStatusRepository.php';
 require_once __DIR__ . '/src/data/TaskRepository.php';
+require_once __DIR__ . '/src/util/Stripe.php';
 
 header('Content-Type: application/json');
 
@@ -36,7 +38,7 @@ $accounts = new AccountRepository();
 $auth = new Auth($users, $accounts);
 $account = new AccountService($users);
 $projectRepo = new ProjectRepository();
-$projects = new ProjectService($users, $projectRepo);
+$projects = new ProjectService($users, $projectRepo, $accounts);
 $workflowStatusRepo = new WorkflowStatusRepository();
 $taskRepo = new TaskRepository();
 $workflowStatuses = new WorkflowStatusService($users, $projectRepo, $workflowStatusRepo, $taskRepo);
@@ -50,11 +52,27 @@ $assistant = new AiAssistantService(
     EnvConfig::geminiApiKey($env),
 );
 
+$stripeConfig = $env['stripe'] ?? [];
+$stripeClient = new Stripe(
+    secretKey: (string) ($stripeConfig['secret_key'] ?? ''),
+    webhookSecret: (string) ($stripeConfig['webhook_secret'] ?? ''),
+);
+$billing = new BillingService(
+    users: $users,
+    accounts: $accounts,
+    stripe: $stripeClient,
+    pricePro: (string) ($stripeConfig['price_pro'] ?? ''),
+    successUrl: (string) ($stripeConfig['success_url'] ?? ''),
+    cancelUrl: (string) ($stripeConfig['cancel_url'] ?? ''),
+    portalReturnUrl: (string) ($stripeConfig['portal_return_url'] ?? ''),
+);
+
 // ── Route ──
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $route = $uri ?: '/';
 $method = $_SERVER['REQUEST_METHOD'];
-$body = json_decode(file_get_contents('php://input'), true) ?? [];
+$rawBody = file_get_contents('php://input') ?: '';
+$body = json_decode($rawBody, true) ?? [];
 
 $projectPathId = null;
 if (preg_match('#^/projects/([^/]+)$#', $route, $projectPathMatch)) {
@@ -225,6 +243,23 @@ try {
             $projectAssistantId,
             $body['prompt'] ?? '',
             $body['history'] ?? null,
+        ),
+
+        $method === 'GET' && $route === '/billing' => $billing->getBilling(
+            $_SESSION['userId'] ?? null,
+        ),
+
+        $method === 'POST' && $route === '/billing/checkout' => $billing->createCheckout(
+            $_SESSION['userId'] ?? null,
+        ),
+
+        $method === 'POST' && $route === '/billing/portal' => $billing->createPortal(
+            $_SESSION['userId'] ?? null,
+        ),
+
+        $method === 'POST' && $route === '/webhooks/stripe' => $billing->handleWebhook(
+            $rawBody,
+            $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '',
         ),
 
         default => null,

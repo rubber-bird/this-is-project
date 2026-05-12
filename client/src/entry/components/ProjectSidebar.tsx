@@ -9,8 +9,10 @@ import {
   List,
   ListItemButton,
   ListItemText,
+  ListItemIcon,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import FolderRoundedIcon from "@mui/icons-material/FolderRounded";
 import { Link as RouterLink, useMatch } from "react-router-dom";
 
 import type { Project } from "../../api";
@@ -45,24 +47,42 @@ export function ProjectSidebar({
         "& .MuiDrawer-paper": {
           width: drawerWidth,
           boxSizing: "border-box",
+          bgcolor: "background.paper",
         },
       }}
     >
-      <Toolbar />
+      <Toolbar sx={{ minHeight: { xs: 72, sm: 80 } }} />
       <Box
         sx={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          pr: 1,
-          pl: 2,
-          py: 1,
+          pr: 1.5,
+          pl: 2.5,
+          py: 1.5,
         }}
       >
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 700,
+            letterSpacing: "-0.2px",
+            color: "text.primary",
+          }}
+        >
           Projects
         </Typography>
-        <IconButton size="small" aria-label="New project" onClick={onCreate}>
+        <IconButton
+          size="small"
+          aria-label="New project"
+          onClick={onCreate}
+          sx={{
+            bgcolor: "rgba(8, 44, 246, 0.08)",
+            color: "primary.main",
+            borderRadius: 1.5,
+            "&:hover": { bgcolor: "rgba(8, 44, 246, 0.16)" },
+          }}
+        >
           <AddIcon fontSize="small" />
         </IconButton>
       </Box>
@@ -71,11 +91,11 @@ export function ProjectSidebar({
           <CircularProgress size={28} />
         </Box>
       ) : loadError ? (
-        <Alert severity="error" sx={{ mx: 1 }}>
+        <Alert severity="error" sx={{ mx: 1.5 }}>
           {loadError}
         </Alert>
       ) : (
-        <List disablePadding>
+        <List disablePadding sx={{ px: 1, pt: 0.5 }}>
           {projects.length === 0 ? (
             <Typography
               variant="body2"
@@ -85,20 +105,55 @@ export function ProjectSidebar({
               No projects yet
             </Typography>
           ) : (
-            projects.map((project) => (
-              <ListItemButton
-                key={project.id}
-                component={RouterLink}
-                to={`/projects/${project.id}`}
-                selected={project.id === selectedId}
-              >
-                <ListItemText
-                  primary={project.name}
-                  secondary={project.description ?? undefined}
-                  secondaryTypographyProps={{ noWrap: true }}
-                />
-              </ListItemButton>
-            ))
+            projects.map((project) => {
+              const isSelected = project.id === selectedId;
+              return (
+                <ListItemButton
+                  key={project.id}
+                  component={RouterLink}
+                  to={`/projects/${project.id}`}
+                  selected={isSelected}
+                  sx={{
+                    my: 0.25,
+                    py: 1,
+                    px: 1.25,
+                    position: "relative",
+                    "&.Mui-selected::before": {
+                      content: '""',
+                      position: "absolute",
+                      left: 0,
+                      top: 8,
+                      bottom: 8,
+                      width: 3,
+                      borderRadius: 2,
+                      bgcolor: "primary.main",
+                    },
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 36,
+                      color: isSelected ? "primary.main" : "text.secondary",
+                    }}
+                  >
+                    <FolderRoundedIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={project.name}
+                    secondary={project.description ?? undefined}
+                    primaryTypographyProps={{
+                      fontWeight: isSelected ? 700 : 500,
+                      color: isSelected ? "primary.main" : "text.primary",
+                      noWrap: true,
+                    }}
+                    secondaryTypographyProps={{
+                      noWrap: true,
+                      fontSize: 12,
+                    }}
+                  />
+                </ListItemButton>
+              );
+            })
           )}
         </List>
       )}
