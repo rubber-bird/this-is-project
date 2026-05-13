@@ -8,7 +8,42 @@ import {
   Typography,
 } from "@mui/material";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
+import ViewKanbanRoundedIcon from "@mui/icons-material/ViewKanbanRounded";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
+import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
+import LockRoundedIcon from "@mui/icons-material/LockRounded";
 import { Outlet } from "react-router-dom";
+
+const FEATURES: Array<{
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}> = [
+  {
+    icon: <ViewKanbanRoundedIcon color="primary" />,
+    title: "Kanban boards",
+    description:
+      "Drag tasks across To Do, In Progress, and Done stages of your workflow to track work.",
+  },
+  {
+    icon: <GroupsRoundedIcon color="primary" />,
+    title: "Team collaboration",
+    description:
+      "Invite teammates, assign tasks, and keep everyone aligned on what's and who is next.",
+  },
+  {
+    icon: <BoltRoundedIcon color="primary" />,
+    title: "Fast and lightweight",
+    description:
+      "Create a project and start tracking tasks in under a minute.",
+  },
+  {
+    icon: <LockRoundedIcon color="primary" />,
+    title: "Secure by default",
+    description:
+      "Your projects stay private to your team with built-in authentication.",
+  },
+];
 
 const PLANS: Array<{
   name: string;
@@ -24,7 +59,6 @@ const PLANS: Array<{
     features: [
       "Up to 3 projects",
       "Up to 50 tasks per project",
-      "Community support",
     ],
     highlight: false,
   },
@@ -35,8 +69,6 @@ const PLANS: Array<{
     features: [
       "Unlimited projects",
       "Unlimited tasks",
-      "Priority email support",
-      "Advanced workflow controls",
     ],
     highlight: true,
   },
@@ -88,9 +120,48 @@ export function AuthLayout() {
                 color="text.secondary"
                 sx={{ maxWidth: 480 }}
               >
-                A simple Kanban-style project tracker for teams. Pick the plan
-                that fits — upgrade or downgrade anytime.
+                A simple Kanban-style project tracker for teams. Organize
+                tasks, collaborate with teammates, and ship work faster — all
+                in one place. Pick the plan that fits and upgrade or downgrade
+                anytime.
               </Typography>
+            </Stack>
+
+            <Stack spacing={1.5}>
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  color: "text.primary",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.8,
+                }}
+              >
+                Why teams choose us
+              </Typography>
+              <Stack spacing={1.5}>
+                {FEATURES.map((feature) => (
+                  <Stack
+                    key={feature.title}
+                    direction="row"
+                    spacing={1.5}
+                    alignItems="flex-start"
+                  >
+                    <Box sx={{ mt: "2px" }}>{feature.icon}</Box>
+                    <Stack spacing={0.25}>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: 700, color: "text.primary" }}
+                      >
+                        {feature.title}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {feature.description}
+                      </Typography>
+                    </Stack>
+                  </Stack>
+                ))}
+              </Stack>
             </Stack>
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>

@@ -24,14 +24,11 @@ import {
 const PRO_FEATURES = [
   "Unlimited projects",
   "Unlimited tasks",
-  "Priority email support",
-  "Advanced workflow controls",
 ];
 
 const FREE_FEATURES = [
   "Up to 3 projects",
   "Up to 50 tasks per project",
-  "Community support",
 ];
 
 function formatDate(iso: string | null): string {
