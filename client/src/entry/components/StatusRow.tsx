@@ -1,12 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  Box,
-  IconButton,
-  Stack,
-  TextField,
-  Tooltip,
-} from "@mui/material";
+import { Box, IconButton, Stack, TextField, Tooltip } from "@mui/material";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 
@@ -69,6 +63,7 @@ export function StatusRow({
       </Tooltip>
       <TextField
         label="Name"
+        placeholder="e.g. To do"
         value={status.name}
         onChange={(e) => onNameChange(e.target.value)}
         disabled={disabled}
