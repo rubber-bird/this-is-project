@@ -4,3 +4,5 @@ docs
 
 node_modules
 backend/env.json
+backend/uploads/*
+!backend/uploads/.gitkeep

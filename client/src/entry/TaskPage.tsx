@@ -25,6 +25,7 @@ import {
   type WorkflowStatus,
 } from "../api";
 import { useSetTaskBreadcrumb } from "./BreadcrumbContext";
+import { TaskAttachments } from "./components/TaskAttachments";
 import { TaskDescriptionEditor } from "./components/TaskDescriptionEditor";
 import { TaskMetaSidebar } from "./components/TaskMetaSidebar";
 import { applyTaskDescriptionToEditor } from "./utils/taskDescriptionBlocks";
@@ -251,6 +252,11 @@ function TaskEditor({
             editor={editor}
             editable={isEdit && !saving}
             variant="page"
+          />
+          <TaskAttachments
+            projectId={task.project_id}
+            taskId={task.id}
+            disabled={saving}
           />
         </Stack>
         <TaskMetaSidebar

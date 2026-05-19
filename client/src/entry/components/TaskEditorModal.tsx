@@ -25,6 +25,7 @@ import {
   type User,
   type WorkflowStatus,
 } from "../../api";
+import { TaskAttachments } from "./TaskAttachments";
 import { TaskDescriptionEditor } from "./TaskDescriptionEditor";
 import { TaskMetaSidebar } from "./TaskMetaSidebar";
 import { applyTaskDescriptionToEditor } from "../utils/taskDescriptionBlocks";
@@ -198,6 +199,13 @@ export function TaskEditorModal({
                 editable={isEdit && !busy}
                 variant="page"
               />
+              {task ? (
+                <TaskAttachments
+                  projectId={task.project_id}
+                  taskId={task.id}
+                  disabled={busy}
+                />
+              ) : null}
             </Stack>
             <TaskMetaSidebar
               statuses={statuses}

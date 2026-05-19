@@ -55,6 +55,17 @@ export interface Task {
   updated_at: string | null;
 }
 
+export interface TaskAttachment {
+  id: string;
+  task_id: string;
+  project_id: string;
+  original_filename: string;
+  mime_type: string | null;
+  size_bytes: number;
+  uploaded_by: string | null;
+  created_at: string | null;
+}
+
 export interface AssistantHistoryMessage {
   role: "user" | "assistant";
   text: string;
