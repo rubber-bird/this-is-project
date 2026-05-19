@@ -10,11 +10,14 @@ require_once __DIR__ . '/src/service/AccountService.php';
 require_once __DIR__ . '/src/service/ProjectService.php';
 require_once __DIR__ . '/src/service/WorkflowStatusService.php';
 require_once __DIR__ . '/src/service/TaskService.php';
+require_once __DIR__ . '/src/service/TaskAttachmentService.php';
 require_once __DIR__ . '/src/service/AiAssistantService.php';
 require_once __DIR__ . '/src/service/BillingService.php';
 require_once __DIR__ . '/src/data/ProjectRepository.php';
 require_once __DIR__ . '/src/data/WorkflowStatusRepository.php';
 require_once __DIR__ . '/src/data/TaskRepository.php';
+require_once __DIR__ . '/src/data/TaskAttachmentRepository.php';
+require_once __DIR__ . '/src/util/TaskAttachmentStorage.php';
 require_once __DIR__ . '/src/util/Stripe.php';
 
 header('Content-Type: application/json');
@@ -41,8 +44,11 @@ $projectRepo = new ProjectRepository();
 $projects = new ProjectService($users, $projectRepo, $accounts);
 $workflowStatusRepo = new WorkflowStatusRepository();
 $taskRepo = new TaskRepository();
+$taskAttachmentRepo = new TaskAttachmentRepository();
+$attachmentStorage = TaskAttachmentStorage::fromBackendRoot(__DIR__);
+$taskAttachments = new TaskAttachmentService($users, $projectRepo, $taskRepo, $taskAttachmentRepo, $attachmentStorage);
 $workflowStatuses = new WorkflowStatusService($users, $projectRepo, $workflowStatusRepo, $taskRepo);
-$tasks = new TaskService($users, $projectRepo, $workflowStatusRepo, $taskRepo);
+$tasks = new TaskService($users, $projectRepo, $workflowStatusRepo, $taskRepo, $taskAttachments);
 $assistant = new AiAssistantService(
     $users,
     $projectRepo,
@@ -101,6 +107,15 @@ $taskPathTaskId = null;
 if (preg_match('#^/projects/([^/]+)/tasks/([^/]+)$#', $route, $taskMatch)) {
     $taskPathProjectId = $taskMatch[1];
     $taskPathTaskId = $taskMatch[2];
+}
+
+$taskAttachmentsProjectId = null;
+$taskAttachmentsTaskId = null;
+$taskAttachmentsAttachmentId = null;
+if (preg_match('#^/projects/([^/]+)/tasks/([^/]+)/attachments(?:/([^/]+))?$#', $route, $attachmentsMatch)) {
+    $taskAttachmentsProjectId = $attachmentsMatch[1];
+    $taskAttachmentsTaskId = $attachmentsMatch[2];
+    $taskAttachmentsAttachmentId = $attachmentsMatch[3] ?? null;
 }
 
 $projectAssistantId = null;
@@ -238,6 +253,33 @@ try {
             $taskPathTaskId,
         ),
 
+        $method === 'GET' && $taskAttachmentsProjectId !== null && $taskAttachmentsTaskId !== null && $taskAttachmentsAttachmentId === null => $taskAttachments->list(
+            $_SESSION['userId'] ?? null,
+            $taskAttachmentsProjectId,
+            $taskAttachmentsTaskId,
+        ),
+
+        $method === 'POST' && $taskAttachmentsProjectId !== null && $taskAttachmentsTaskId !== null && $taskAttachmentsAttachmentId === null => $taskAttachments->upload(
+            $_SESSION['userId'] ?? null,
+            $taskAttachmentsProjectId,
+            $taskAttachmentsTaskId,
+            $_FILES['file'] ?? null,
+        ),
+
+        $method === 'GET' && $taskAttachmentsProjectId !== null && $taskAttachmentsTaskId !== null && $taskAttachmentsAttachmentId !== null => $taskAttachments->download(
+            $_SESSION['userId'] ?? null,
+            $taskAttachmentsProjectId,
+            $taskAttachmentsTaskId,
+            $taskAttachmentsAttachmentId,
+        ),
+
+        $method === 'DELETE' && $taskAttachmentsProjectId !== null && $taskAttachmentsTaskId !== null && $taskAttachmentsAttachmentId !== null => $taskAttachments->delete(
+            $_SESSION['userId'] ?? null,
+            $taskAttachmentsProjectId,
+            $taskAttachmentsTaskId,
+            $taskAttachmentsAttachmentId,
+        ),
+
         $method === 'POST' && $projectAssistantId !== null => $assistant->handlePrompt(
             $_SESSION['userId'] ?? null,
             $projectAssistantId,
@@ -281,5 +323,28 @@ if ($result === null) {
 } else {
     $response = ResultMapper::toResponse($result);
     http_response_code($response['code']);
-    echo json_encode($response['body']);
+
+    $body = $response['body'];
+    if (
+        is_array($body)
+        && isset($body['__file'])
+        && is_array($body['__file'])
+        && isset($body['__file']['path'], $body['__file']['filename'])
+    ) {
+        $file = $body['__file'];
+        $path = (string) $file['path'];
+        if (!is_file($path)) {
+            http_response_code(404);
+            echo json_encode(['error' => 'File not found']);
+            exit;
+        }
+        header_remove('Content-Type');
+        header('Content-Type: ' . ($file['mime_type'] ?? 'application/octet-stream'));
+        header('Content-Disposition: attachment; filename="' . str_replace('"', '', (string) $file['filename']) . '"');
+        header('Content-Length: ' . (string) filesize($path));
+        readfile($path);
+        exit;
+    }
+
+    echo json_encode($body);
 }

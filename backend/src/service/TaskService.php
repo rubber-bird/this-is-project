@@ -18,6 +18,7 @@ class TaskService
         private readonly ProjectRepository $projects,
         private readonly WorkflowStatusRepository $statuses,
         private readonly TaskRepository $tasks,
+        private readonly ?TaskAttachmentService $attachments = null,
     ) {}
 
     public function list(?string $userId, string $projectId): Result {
@@ -192,6 +193,7 @@ class TaskService
         }
 
         $this->tasks->delete($taskId, $projectId);
+        $this->attachments?->deleteAllForTask($projectId, $taskId);
 
         return Result::ok(200, ['message' => 'Deleted']);
     }
