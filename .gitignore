@@ -1,6 +1,6 @@
-docs
-!docs/.gitkeep
+
 !docs/HOWTO.md
+!docs/.gitkeep
 
 node_modules
 backend/env.json

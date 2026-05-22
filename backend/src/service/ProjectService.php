@@ -91,7 +91,6 @@ class ProjectService
         return Result::ok(201, $project->toPublicArray());
     }
 
-    /** @param array<string, mixed> $patch */
     public function update(?string $userId, string $projectId, array $patch): Result {
         $userResult = $this->requireUser($userId);
         if ($userResult->failed()) {
@@ -155,7 +154,6 @@ class ProjectService
         return Result::ok(200, ['message' => 'Deleted']);
     }
 
-    /** @return Result User on success */
     private function requireUser(?string $userId): Result {
         if (!$userId) {
             return Result::fail(401, 'unauthorized', ['message' => 'Not authenticated']);

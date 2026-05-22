@@ -18,7 +18,7 @@ class BillingService
         private readonly string $portalReturnUrl,
     ) {}
 
-    public function getBilling(?string $userId): Result {
+    public function getBilling(string $userId): Result {
         $authResult = $this->requireOwner($userId);
         if ($authResult->failed()) {
             return $authResult;
@@ -28,7 +28,7 @@ class BillingService
         return Result::ok(200, $this->publicAccount($account));
     }
 
-    public function createCheckout(?string $userId): Result {
+    public function createCheckout(string $userId): Result {
         if (!$this->stripe->isConfigured()) {
             return Result::fail(503, 'unavailable', ['message' => 'Billing is not configured']);
         }
